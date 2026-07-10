@@ -1,5 +1,14 @@
-import redis.asyncio as redis
+from collections.abc import AsyncGenerator
+
+from redis.asyncio import Redis
 
 from app.core.config import settings
 
-redis_client = redis.from_url(settings.REDIS_URL, decode_responses=True)
+redis_client = Redis.from_url(
+    settings.REDIS_URL,
+    decode_responses=True,
+)
+
+
+async def get_redis_client() -> AsyncGenerator[Redis]:
+    yield redis_client

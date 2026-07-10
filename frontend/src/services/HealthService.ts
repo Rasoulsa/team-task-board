@@ -1,7 +1,7 @@
-import { HealthRepository } from "../repositories/HealthRepository";
+import { HealthRepository } from '../repositories/HealthRepository';
 
 export class HealthService {
-  private repo: HealthRepository;
+  private readonly repo: HealthRepository;
 
   constructor(repo: HealthRepository) {
     this.repo = repo;

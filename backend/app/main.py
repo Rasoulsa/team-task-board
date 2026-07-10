@@ -7,12 +7,8 @@ from fastapi.responses import JSONResponse
 
 from app.api.v1.router import api_router
 from app.core.config import settings
-from app.core.exceptions import (
-    AppException,
-)
-from app.core.exceptions import (
-    app_exception_handler as handle_app_exception,
-)
+from app.core.exceptions import AppException
+from app.core.exceptions import app_exception_handler as handle_app_exception
 from app.core.logging import configure_logging, logger
 from app.db.redis import redis_client
 
@@ -20,7 +16,13 @@ from app.db.redis import redis_client
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     configure_logging()
-    await redis_client.ping()
+
+    try:
+        await redis_client.ping()
+    except Exception:
+        logger.exception("redis_connection_failed", redis_url=settings.REDIS_URL)
+        raise
+
     logger.info("startup", app=settings.APP_NAME, env=settings.ENV)
 
     yield
@@ -34,7 +36,6 @@ async def registered_app_exception_handler(
     exc: Exception,
 ) -> JSONResponse:
     assert isinstance(exc, AppException)
-
     return await handle_app_exception(request, exc)
 
 
@@ -54,6 +55,7 @@ def create_app() -> FastAPI:
     )
 
     app.add_exception_handler(AppException, registered_app_exception_handler)
+
     app.include_router(api_router, prefix="/api/v1")
 
     @app.get("/health", tags=["health"])

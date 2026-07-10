@@ -25,3 +25,4 @@ team_task_board_backend.egg-info/SOURCES.txt
 team_task_board_backend.egg-info/dependency_links.txt
 team_task_board_backend.egg-info/requires.txt
 team_task_board_backend.egg-info/top_level.txt
+tests/test_health.py

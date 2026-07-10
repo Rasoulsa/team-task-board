@@ -8,13 +8,27 @@ class Settings(BaseSettings):
 
     ENV: str = "development"
     APP_NAME: str = "Team Task Board"
-    SECRET_KEY: str = "change-me"
+    SECRET_KEY: str = "team-task-board-dev-secret-key-minimum-32-characters-long"
+
+    # JWT / Authentication
+    JWT_SECRET_KEY: str = "team-task-board-dev-secret-key-minimum-32-characters-long"
+    JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+    PASSWORD_RESET_TOKEN_EXPIRE_MINUTES: int = 30
 
-    DATABASE_URL: str = "postgresql+asyncpg://ttb:ttb_password@db:5432/ttb_db"
-    REDIS_URL: str = "redis://redis:6379/0"
-    CORS_ORIGINS: str = "http://localhost:5173"
+    # Authentication rate limiting
+    AUTH_RATE_LIMIT_TIMES: int = 10
+    AUTH_RATE_LIMIT_SECONDS: int = 60
+
+    # Local development defaults.
+    # When backend runs inside Docker, docker-compose should override these.
+    DATABASE_URL: str = "postgresql+asyncpg://ttb:ttb_password@localhost:55432/ttb_db"
+    REDIS_URL: str = "redis://localhost:6380/0"
+
+    # Frontend / CORS
+    CORS_ORIGINS: str = "http://localhost:5174"
+    FRONTEND_URL: str = "http://localhost:5174"
 
     @property
     def cors_origins_list(self) -> list[str]:

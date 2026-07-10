@@ -1,14 +1,16 @@
-import type { AxiosInstance } from "axios";
+import axios from 'axios';
+
+import { config } from '../core/config';
+
+type HealthResponse = {
+  status?: string;
+  message?: string;
+};
 
 export class HealthRepository {
-  private http: AxiosInstance;
-
-  constructor(http: AxiosInstance) {
-    this.http = http;
-  }
-
   async ping(): Promise<string> {
-    const { data } = await this.http.get("/ping");
-    return data.message;
+    const response = await axios.get<HealthResponse>(`${config.apiBaseUrl}/health`);
+
+    return response.data.status ?? response.data.message ?? 'ok';
   }
 }
