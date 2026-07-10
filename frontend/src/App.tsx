@@ -1,20 +1,28 @@
-import { useEffect, useState } from "react";
-import { useServices } from "./core/di/container";
+import { Navigate, Route, Routes } from 'react-router-dom';
+
+import { ProtectedRoute } from './features/auth/components/ProtectedRoute';
+import { DashboardPage } from './features/auth/pages/DashboardPage';
+import { LoginPage } from './features/auth/pages/LoginPage';
+import { RegisterPage } from './features/auth/pages/RegisterPage';
 
 export default function App() {
-  const { health } = useServices();
-  const [status, setStatus] = useState("checking...");
-
-  useEffect(() => {
-    health.check().then(setStatus).catch(() => setStatus("backend unreachable"));
-  }, [health]);
-
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="p-8 bg-white rounded-xl shadow">
-        <h1 className="text-2xl font-bold">Team Task Board</h1>
-        <p className="mt-2 text-gray-600">Backend: <span className="font-mono">{status}</span></p>
-      </div>
-    </div>
+    <Routes>
+      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/register" element={<RegisterPage />} />
+
+      <Route
+        path="/dashboard"
+        element={
+          <ProtectedRoute>
+            <DashboardPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+    </Routes>
   );
 }

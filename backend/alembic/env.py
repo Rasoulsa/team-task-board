@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from app.core.config import settings
 from app.db.base import Base
+from app.models import Invitation, Organization, OrgMember, User  # noqa: F401
 
 # Later, when we create models, we will import them here
 # so Alembic can detect them during autogenerate.

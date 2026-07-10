@@ -16,6 +16,9 @@ Requires-Dist: python-jose[cryptography]>=3.3.0
 Requires-Dist: passlib[bcrypt]>=1.7.4
 Requires-Dist: python-multipart>=0.0.9
 Requires-Dist: structlog>=24.1.0
+Requires-Dist: pwdlib[argon2]>=0.3.0
+Requires-Dist: pyjwt>=2.13.0
+Requires-Dist: email-validator>=2.3.0
 Provides-Extra: dev
 Requires-Dist: ruff>=0.12.0; extra == "dev"
 Requires-Dist: mypy>=1.10.0; extra == "dev"
