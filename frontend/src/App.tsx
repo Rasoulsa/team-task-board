@@ -1,9 +1,12 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 
+import { AppLayout } from './features/app-shell/components/AppLayout';
 import { ProtectedRoute } from './features/auth/components/ProtectedRoute';
-import { DashboardPage } from './features/auth/pages/DashboardPage';
 import { LoginPage } from './features/auth/pages/LoginPage';
 import { RegisterPage } from './features/auth/pages/RegisterPage';
+import { BoardsPage } from './features/boards/pages/BoardsPage';
+import { DashboardPage } from './features/dashboard/pages/DashboardPage';
+import { ProjectsPage } from './features/projects/pages/ProjectsPage';
 
 export default function App() {
   return (
@@ -14,13 +17,16 @@ export default function App() {
       <Route path="/register" element={<RegisterPage />} />
 
       <Route
-        path="/dashboard"
         element={
           <ProtectedRoute>
-            <DashboardPage />
+            <AppLayout />
           </ProtectedRoute>
         }
-      />
+      >
+        <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/projects" element={<ProjectsPage />} />
+        <Route path="/projects/:projectId/boards" element={<BoardsPage />} />
+      </Route>
 
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
