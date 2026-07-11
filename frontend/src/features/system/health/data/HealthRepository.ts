@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-import { config } from '../core/config';
+import { config } from '../../../../core/config';
 
 type HealthResponse = {
   status?: string;

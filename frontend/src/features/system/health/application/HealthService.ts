@@ -1,4 +1,4 @@
-import { HealthRepository } from '../repositories/HealthRepository';
+import { HealthRepository } from '../data/HealthRepository';
 
 export class HealthService {
   private readonly repo: HealthRepository;
