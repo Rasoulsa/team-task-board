@@ -1,14 +1,11 @@
-from collections.abc import AsyncGenerator
-
 from redis.asyncio import Redis
 
 from app.core.config import settings
 
-redis_client = Redis.from_url(
-    settings.REDIS_URL,
-    decode_responses=True,
-)
 
+def create_redis_client() -> Redis:
+    """Create an application Redis client.
 
-async def get_redis_client() -> AsyncGenerator[Redis]:
-    yield redis_client
+    The caller is responsible for closing it with ``await client.aclose()``.
+    """
+    return Redis.from_url(settings.REDIS_URL)

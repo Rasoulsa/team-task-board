@@ -10,25 +10,36 @@ from app.core.config import settings
 from app.core.exceptions import AppException
 from app.core.exceptions import app_exception_handler as handle_app_exception
 from app.core.logging import configure_logging, logger
-from app.db.redis import redis_client
+from app.db.redis import create_redis_client
+from app.db.session import engine
 
 
 @asynccontextmanager
-async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     configure_logging()
+
+    redis_client = create_redis_client()
+    app.state.redis = redis_client
 
     try:
         await redis_client.ping()
     except Exception:
-        logger.exception("redis_connection_failed", redis_url=settings.REDIS_URL)
+        logger.exception(
+            "redis_connection_failed",
+            redis_url=settings.REDIS_URL,
+        )
+        await redis_client.aclose()
         raise
 
     logger.info("startup", app=settings.APP_NAME, env=settings.ENV)
 
-    yield
-
-    await redis_client.aclose()
-    logger.info("shutdown")
+    try:
+        yield
+    finally:
+        # These must run while the current event loop is still alive.
+        await redis_client.aclose()
+        await engine.dispose()
+        logger.info("shutdown")
 
 
 async def registered_app_exception_handler(

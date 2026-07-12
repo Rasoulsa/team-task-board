@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 
+from app.api.v1.routes import activity, cards, comments
 from app.api.v1.routes.auth import router as auth_router
 from app.api.v1.routes.boards import router as boards_router
 from app.api.v1.routes.columns import router as columns_router
@@ -21,3 +22,6 @@ api_router.include_router(projects_router)
 api_router.include_router(boards_router)
 api_router.include_router(columns_router)
 api_router.include_router(invitations_router)
+api_router.include_router(cards.router)
+api_router.include_router(comments.router)
+api_router.include_router(activity.router)

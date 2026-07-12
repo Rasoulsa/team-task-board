@@ -1,5 +1,6 @@
 import uuid
 from collections.abc import AsyncGenerator
+from typing import cast
 
 import jwt
 from fastapi import Depends, HTTPException, Request, status
@@ -9,7 +10,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.security import decode_token
-from app.db.redis import get_redis_client
 from app.db.session import get_db_session
 from app.models.user import User
 from app.repositories.users import UserRepository
@@ -22,9 +22,9 @@ async def get_db() -> AsyncGenerator[AsyncSession]:
         yield session
 
 
-async def get_redis() -> AsyncGenerator[Redis]:
-    async for redis in get_redis_client():
-        yield redis
+async def get_redis(request: Request) -> Redis:
+    """Return the Redis client owned by the current FastAPI application."""
+    return cast(Redis, request.app.state.redis)
 
 
 async def rate_limit_auth(
@@ -56,10 +56,8 @@ async def get_current_user(
             detail="Not authenticated",
         )
 
-    token = credentials.credentials
-
     try:
-        payload = decode_token(token)
+        payload = decode_token(credentials.credentials)
     except jwt.PyJWTError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
