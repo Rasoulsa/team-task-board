@@ -119,11 +119,10 @@ class AuthService:
                 detail="Refresh token session not found",
             )
 
-        await self.redis.delete(refresh_key)
-        await self.redis.setex(
+        await self.redis.set(
             f"auth:blacklist:{jti}",
-            timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
             "1",
+            ex=timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
         )
 
         user = await self.users.get_by_id(uuid.UUID(user_id))
@@ -166,10 +165,10 @@ class AuthService:
         reset_token = secrets.token_urlsafe(32)
         key = f"auth:password-reset:{reset_token}"
 
-        await self.redis.setex(
+        await self.redis.set(
             key,
-            timedelta(minutes=settings.PASSWORD_RESET_TOKEN_EXPIRE_MINUTES),
             str(user.id),
+            ex=timedelta(minutes=settings.PASSWORD_RESET_TOKEN_EXPIRE_MINUTES),
         )
 
         if settings.ENV == "development":
@@ -207,10 +206,10 @@ class AuthService:
         payload = decode_token(refresh_token)
         jti = self._get_required_string_claim(payload, "jti")
 
-        await self.redis.setex(
+        await self.redis.set(
             f"auth:refresh:{jti}",
-            timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
             str(user.id),
+            ex=timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
         )
 
         return AuthResponse(
