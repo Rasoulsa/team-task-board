@@ -14,23 +14,67 @@ jobs:
     name: Backend checks
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: team_task_board_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d team_task_board_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
     defaults:
       run:
         working-directory: backend
+
+    # These values are available to all backend steps, including pytest.
+    env:
+      ENVIRONMENT: testing
+
+      # GitHub Actions Redis service:
+      # Local Docker uses localhost:6380, but CI must use localhost:6379.
+      REDIS_URL: redis://localhost:6379/1
+
+      # GitHub Actions PostgreSQL service:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/team_task_board_test
+
+      # Required only if your Alembic configuration uses a separate sync URL.
+      DATABASE_URL_SYNC: postgresql+psycopg://postgres:postgres@localhost:5432/team_task_board_test
+
+      # Use test-only values. Keep real production secrets outside the repository.
+      SECRET_KEY: ci-test-secret-key-must-be-at-least-32-characters-long
+      JWT_SECRET_KEY: ci-jwt-test-secret-key-must-be-at-least-32-characters
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
-        with:
-          enable-cache: true
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.13"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
 
       - name: Install backend dependencies
         run: uv sync --extra dev --frozen
@@ -39,10 +83,13 @@ jobs:
         run: uv run ruff check .
 
       - name: Ruff format check
-        run: uv run ruff format . --check
+        run: uv run ruff format --check .
 
       - name: Mypy
         run: uv run mypy app
+
+      - name: Run database migrations
+        run: uv run alembic upgrade head
 
       - name: Tests
         run: uv run pytest -v
@@ -69,8 +116,14 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
+      - name: Lint
+        run: npm run lint
+
       - name: Type check
         run: npx tsc --noEmit
+
+      - name: Run tests
+        run: npm run test -- --run
 
       - name: Build
         run: npm run build
