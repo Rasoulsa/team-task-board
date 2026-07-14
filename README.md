@@ -143,6 +143,11 @@ Permissions are enforced by backend dependencies and service-layer authorization
 - Board listing and board-column UI
 - API client with token handling
 - Repository and service abstractions for frontend API access
+- Kanban board with draggable columns and cards (@dnd-kit)
+- Optimistic card reordering using client-side LexoRank
+- Card modal with title, description, priority, due date, checklist, labels, assignees
+- TanStack Query caching with optimistic updates and invalidation
+- CardRepository and CardService
 
 ---
 
@@ -384,7 +389,7 @@ make down
 [x] Backend authentication and frontend authentication shell
 [x] RBAC, projects, boards, columns, and application shell
 [x] Cards, ordering, comments, mentions, and activity logging backend
-[ ] Kanban board UI and drag-and-drop interaction
+[x] Kanban board UI and drag-and-drop interaction
 [ ] Real-time updates with WebSockets
 [ ] Notifications and Celery background tasks
 [ ] Reporting, caching, and activity feed UI

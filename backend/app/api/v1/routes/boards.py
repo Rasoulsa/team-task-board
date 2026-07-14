@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user, get_db
 from app.models.user import User
 from app.schemas.board import BoardCreate, BoardRead, BoardUpdate
+from app.schemas.kanban import KanbanBoard as KanbanBoardSchema
 from app.services.boards import BoardService
 
 router = APIRouter(tags=["boards"])
@@ -44,6 +45,20 @@ async def create_board(
         current_user=current_user,
     )
     return BoardRead.model_validate(board)
+
+
+@router.get("/boards/{board_id}/kanban", response_model=KanbanBoardSchema)
+async def get_kanban_board(
+    board_id: uuid.UUID,
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> KanbanBoardSchema:
+    service = BoardService(session)
+    board = await service.get_kanban_board(
+        board_id=board_id,
+        current_user=current_user,
+    )
+    return KanbanBoardSchema.model_validate(board)
 
 
 @router.get("/boards/{board_id}", response_model=BoardRead)

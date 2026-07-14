@@ -27,13 +27,16 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://localhost:6380/0"
 
     # Frontend / CORS
-    CORS_ORIGINS: str = "http://localhost:5174"
-    FRONTEND_URL: str = "http://localhost:5174"
+    CORS_ORIGINS: str = "http://localhost:5173,http://localhost:5174"
+    # FRONTEND_URL: str = "http://localhost:5173"
 
     @property
     def cors_origins_list(self) -> list[str]:
-        return [o.strip() for o in self.CORS_ORIGINS.split(",")]
-
+        return [
+            origin.strip()
+            for origin in self.CORS_ORIGINS.split(",")
+            if origin.strip()
+        ]
 
 @lru_cache
 def get_settings() -> Settings:

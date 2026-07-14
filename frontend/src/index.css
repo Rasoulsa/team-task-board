@@ -1,3 +1,780 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+* {
+  box-sizing: border-box;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Kanban board                                                               */
+/* -------------------------------------------------------------------------- */
+
+.kanban-board {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(260px, 1fr));
+  gap: 1rem;
+  width: 100%;
+  min-width: 0;
+  align-items: start;
+  padding: 1rem 0;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Kanban column                                                              */
+/* -------------------------------------------------------------------------- */
+
+.kanban-column {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 180px;
+  overflow: hidden;
+  color: #0f172a;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+  transition:
+    border-color 150ms ease,
+    background-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.kanban-column--over {
+  background: #dbeafe;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgb(59 130 246 / 20%);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Column header                                                              */
+/* -------------------------------------------------------------------------- */
+
+.kanban-column__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  color: #0f172a;
+  border-bottom: 1px solid #cbd5e1;
+}
+
+.kanban-column__header h3 {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: #0f172a;
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kanban-column__header span {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  height: 1.5rem;
+  padding: 0 0.4rem;
+  color: #475569;
+  background: #e2e8f0;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Column body                                                                */
+/* -------------------------------------------------------------------------- */
+
+.kanban-column__body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-height: 100px;
+  padding: 0.75rem;
+  transition: background-color 150ms ease;
+}
+
+.kanban-column__empty {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  min-height: 72px;
+  margin: 0;
+  color: #64748b;
+  border: 1px dashed #94a3b8;
+  border-radius: 0.375rem;
+  font-size: 0.8rem;
+  pointer-events: none;
+}
+
+.kanban-column--over .kanban-column__empty {
+  color: #1d4ed8;
+  background: rgb(255 255 255 / 50%);
+  border-color: #3b82f6;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Add-card form                                                              */
+/* -------------------------------------------------------------------------- */
+
+.kanban-column__footer {
+  display: flex;
+  align-items: stretch;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.75rem;
+  border-top: 1px solid #cbd5e1;
+}
+
+.kanban-column__footer input {
+  flex: 1;
+  min-width: 0;
+  height: 2.5rem;
+  padding: 0 0.75rem;
+  color: #0f172a;
+  background: #ffffff;
+  border: 1px solid #94a3b8;
+  border-radius: 0.375rem;
+  font: inherit;
+  outline: none;
+}
+
+.kanban-column__footer input::placeholder {
+  color: #64748b;
+}
+
+.kanban-column__footer input:hover:not(:disabled) {
+  border-color: #64748b;
+}
+
+.kanban-column__footer input:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgb(37 99 235 / 15%);
+}
+
+.kanban-column__footer input:disabled {
+  color: #64748b;
+  background: #e2e8f0;
+  cursor: not-allowed;
+}
+
+/*
+ * Tailwind Preflight resets native button styles. These rules restore
+ * a visible application button.
+ */
+.kanban-column__footer button {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  min-width: 4rem;
+  height: 2.5rem;
+  padding: 0 0.875rem;
+  color: #ffffff;
+  background: #2563eb;
+  border: 1px solid #2563eb;
+  border-radius: 0.375rem;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    color 150ms ease,
+    background-color 150ms ease,
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.kanban-column__footer button:hover:not(:disabled) {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+}
+
+.kanban-column__footer button:focus-visible {
+  outline: 3px solid rgb(37 99 235 / 30%);
+  outline-offset: 2px;
+}
+
+.kanban-column__footer button:disabled {
+  color: #e2e8f0;
+  background: #94a3b8;
+  border-color: #94a3b8;
+  cursor: not-allowed;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Kanban card                                                                */
+/* -------------------------------------------------------------------------- */
+
+.kanban-card {
+  position: relative;
+  width: 100%;
+  padding: 0.75rem;
+  overflow: hidden;
+  color: #0f172a;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.375rem;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 10%);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.kanban-card:hover {
+  border-color: #94a3b8;
+  box-shadow: 0 2px 5px rgb(0 0 0 / 12%);
+}
+
+.kanban-card:active {
+  cursor: grabbing;
+}
+
+.kanban-card:focus-visible {
+  outline: 3px solid rgb(37 99 235 / 30%);
+  outline-offset: 2px;
+}
+
+.kanban-card--dragging {
+  opacity: 0.5;
+}
+
+.kanban-card__priority {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 4px;
+  border-radius: 4px 0 0 4px;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Card modal                                                                 */
+/* -------------------------------------------------------------------------- */
+
+.modal-backdrop {
+  position: fixed;
+  z-index: 50;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgb(0 0 0 / 50%);
+}
+
+.modal {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: min(480px, 100%);
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+  padding: 1.5rem;
+  color: #0f172a;
+  background: #ffffff;
+  border-radius: 0.5rem;
+  box-shadow: 0 20px 25px -5px rgb(0 0 0 / 20%);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Responsive layout                                                          */
+/* -------------------------------------------------------------------------- */
+
+@media (max-width: 1000px) {
+  .kanban-board {
+    display: flex;
+    overflow-x: auto;
+    padding-bottom: 1rem;
+  }
+
+  .kanban-column {
+    width: 280px;
+    min-width: 280px;
+  }
+}
+
+@media (max-width: 480px) {
+  .kanban-column {
+    width: 260px;
+    min-width: 260px;
+  }
+
+  .kanban-column__footer {
+    flex-direction: column;
+  }
+
+  .kanban-column__footer button {
+    width: 100%;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Card delete button                                                         */
+/* -------------------------------------------------------------------------- */
+
+.kanban-card-wrapper {
+  position: relative;
+}
+
+.kanban-card__delete {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 2;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 22px;
+  height: 22px;
+  min-width: 0;
+  padding: 0;
+
+  color: #64748b;
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+
+  opacity: 0;
+  transition:
+    opacity 120ms ease,
+    color 120ms ease,
+    background-color 120ms ease;
+}
+
+.kanban-card-wrapper:hover .kanban-card__delete,
+.kanban-card__delete:focus-visible {
+  opacity: 1;
+}
+
+.kanban-card__delete:hover {
+  color: #dc2626;
+  background: #fee2e2;
+}
+
+.kanban-card__delete:focus-visible {
+  outline: 2px solid rgb(220 38 38 / 40%);
+  outline-offset: 1px;
+}
+
+/* Card content text */
+
+.kanban-card__title {
+  margin: 0;
+  padding-right: 20px;
+  color: #0f172a;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.kanban-card__due {
+  margin: 0.35rem 0 0;
+  color: #64748b;
+  font-size: 0.75rem;
+}
+
+.kanban-card__assignees {
+  display: flex;
+  gap: 0.25rem;
+  margin-top: 0.5rem;
+}
+
+.kanban-card__assignees span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  color: #ffffff;
+  background: #475569;
+  border-radius: 9999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+/* Modal delete button */
+
+.modal__actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.modal__delete {
+  margin-right: auto;
+  color: #dc2626;
+  background: transparent;
+  border: 1px solid #dc2626;
+  border-radius: 0.375rem;
+  padding: 0 0.75rem;
+  height: 2.25rem;
+  cursor: pointer;
+}
+
+.modal__delete:hover:not(:disabled) {
+  color: #ffffff;
+  background: #dc2626;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Card modal contents                                                        */
+/* -------------------------------------------------------------------------- */
+
+.modal h2 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.modal h3 {
+  margin: 0 0 0.5rem;
+  color: #334155;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.modal label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  color: #334155;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.modal input,
+.modal textarea,
+.modal select {
+  width: 100%;
+  padding: 0.5rem 0.625rem;
+  color: #0f172a;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.375rem;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 400;
+  outline: none;
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.modal textarea {
+  min-height: 84px;
+  resize: vertical;
+}
+
+.modal input:focus,
+.modal textarea:focus,
+.modal select:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgb(37 99 235 / 15%);
+}
+
+/* Sections */
+
+.modal__checklist,
+.modal__labels,
+.modal__assignees {
+  padding-top: 0.75rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.modal__checklist ul {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.modal__checklist li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #334155;
+  font-size: 0.9rem;
+}
+
+.modal__checklist p,
+.modal__labels p,
+.modal__assignees p {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
+.modal__labels > div,
+.modal__assignees > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.label-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.5rem;
+  color: #ffffff;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.modal__assignees span {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.5rem;
+  color: #334155;
+  background: #e2e8f0;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.modal [role="alert"] {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  color: #b91c1c;
+  background: #fee2e2;
+  border: 1px solid #fecaca;
+  border-radius: 0.375rem;
+  font-size: 0.85rem;
+}
+
+/* Action row */
+
+.modal__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding-top: 1rem;
+  margin-top: 0.25rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+/*
+ * Push the delete button to the far left, keeping Cancel and Save
+ * grouped on the right.
+ */
+.modal__actions .modal__delete {
+  margin-right: auto;
+}
+
+.modal__actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 5rem;
+  height: 2.25rem;
+  padding: 0 1rem;
+  border-radius: 0.375rem;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease;
+}
+
+/* Cancel (secondary) */
+.modal__actions .modal__cancel {
+  color: #334155;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+}
+
+.modal__actions .modal__cancel:hover:not(:disabled) {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+}
+
+/* Save (primary) */
+.modal__actions .modal__save {
+  color: #ffffff;
+  background: #2563eb;
+  border: 1px solid #2563eb;
+}
+
+.modal__actions .modal__save:hover:not(:disabled) {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+}
+
+/* Delete (danger, outline) */
+.modal__actions .modal__delete {
+  color: #dc2626;
+  background: #ffffff;
+  border: 1px solid #dc2626;
+}
+
+.modal__actions .modal__delete:hover:not(:disabled) {
+  color: #ffffff;
+  background: #dc2626;
+}
+
+.modal__actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Card delete button                                                         */
+/* -------------------------------------------------------------------------- */
+
+.kanban-card-wrapper {
+  position: relative;
+}
+
+.kanban-card__delete {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  color: #64748b;
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition:
+    opacity 120ms ease,
+    color 120ms ease,
+    background-color 120ms ease;
+}
+
+.kanban-card-wrapper:hover .kanban-card__delete,
+.kanban-card__delete:focus-visible {
+  opacity: 1;
+}
+
+.kanban-card__delete:hover {
+  color: #dc2626;
+  background: #fee2e2;
+}
+
+.kanban-card__title {
+  margin: 0;
+  padding-right: 1.25rem;
+  color: #0f172a;
+  font-size: 0.9rem;
+  font-weight: 600;
+  word-break: break-word;
+}
+
+.kanban-card__due {
+  margin: 0.375rem 0 0;
+  color: #64748b;
+  font-size: 0.75rem;
+}
+
+.kanban-card__assignees {
+  display: flex;
+  gap: 0.25rem;
+  margin-top: 0.5rem;
+}
+
+.kanban-card__assignees span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  color: #ffffff;
+  background: #2563eb;
+  border-radius: 9999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Board status + alert toasts (do not affect layout)                          */
+/* -------------------------------------------------------------------------- */
+
+.kanban-status {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 40;
+
+  padding: 0.5rem 0.875rem;
+
+  color: #e2e8f0;
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 0.5rem;
+
+  font-size: 0.8rem;
+  font-weight: 600;
+
+  pointer-events: none;
+
+  opacity: 0;
+  transform: translateY(-4px);
+  transition:
+    opacity 150ms ease,
+    transform 150ms ease;
+}
+
+.kanban-status[data-visible="true"] {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.kanban-alert {
+  position: fixed;
+  top: 1rem;
+  left: 50%;
+  z-index: 41;
+
+  max-width: min(90vw, 28rem);
+  padding: 0.625rem 1rem;
+
+  color: #fecaca;
+  background: #450a0a;
+  border: 1px solid #7f1d1d;
+  border-radius: 0.5rem;
+
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-align: center;
+
+  opacity: 0;
+  transform: translate(-50%, -8px);
+  transition:
+    opacity 150ms ease,
+    transform 150ms ease;
+}
+
+.kanban-alert[data-visible="true"] {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
