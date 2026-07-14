@@ -32,11 +32,8 @@ class Settings(BaseSettings):
 
     @property
     def cors_origins_list(self) -> list[str]:
-        return [
-            origin.strip()
-            for origin in self.CORS_ORIGINS.split(",")
-            if origin.strip()
-        ]
+        return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
+
 
 @lru_cache
 def get_settings() -> Settings:

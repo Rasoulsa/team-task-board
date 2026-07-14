@@ -100,30 +100,11 @@ class Card(Base):
         cascade="all, delete-orphan",
     )
 
-    column: Mapped["BoardColumn"] = relationship(
+    column: Mapped[BoardColumn] = relationship(
         "BoardColumn",
         back_populates="cards",
     )
 
-    labels: Mapped[list[CardLabel]] = relationship(
-        back_populates="card",
-        cascade="all, delete-orphan",
-    )
-
-    assignees: Mapped[list[CardAssignee]] = relationship(
-        back_populates="card",
-        cascade="all, delete-orphan",
-    )
-
-    checklist_items: Mapped[list[ChecklistItem]] = relationship(
-        back_populates="card",
-        cascade="all, delete-orphan",
-    )
-
-    comments: Mapped[list[Comment]] = relationship(
-        back_populates="card",
-        cascade="all, delete-orphan",
-    )
 
 class CardLabel(Base):
     __tablename__ = "card_labels"
