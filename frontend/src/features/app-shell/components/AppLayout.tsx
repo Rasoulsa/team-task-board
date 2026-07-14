@@ -41,7 +41,7 @@ export function AppLayout() {
         <header className="flex h-16 items-center justify-between border-b border-slate-800 bg-slate-950 px-6">
           <div>
             <p className="text-sm text-slate-400">Workspace</p>
-            <p className="font-medium">RBAC + Projects/Boards</p>
+            <p className="font-medium">Kanban task management</p>
           </div>
 
           <div className="flex items-center gap-4">
@@ -67,7 +67,7 @@ export function AppLayout() {
           </div>
         </header>
 
-        <main className="flex-1 overflow-auto p-6">
+        <main className="min-w-0 flex-1 overflow-auto p-6">
           <Outlet />
         </main>
       </div>

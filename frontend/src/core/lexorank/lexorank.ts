@@ -1,10 +1,10 @@
-const BASE_DIGITS = '0123456789abcdefghijklmnopqrstuvwxyz';
+const BASE_DIGITS = "0123456789abcdefghijklmnopqrstuvwxyz";
 const BASE = BASE_DIGITS.length;
 
 const MIN_CHAR = BASE_DIGITS[0];
 const MAX_CHAR = BASE_DIGITS[BASE - 1];
 
-export const DEFAULT_RANK = 'n';
+export const DEFAULT_RANK = "n";
 
 function charToValue(char: string): number {
   return BASE_DIGITS.indexOf(char);
@@ -35,7 +35,7 @@ function rankBefore(following: string): string {
       const prevChar = valueToChar(charToValue(char) - 1);
       const candidate = following.slice(0, index) + prevChar;
 
-      if (candidate < following && candidate !== '') {
+      if (candidate < following && candidate !== "") {
         return candidate;
       }
     }
@@ -46,14 +46,15 @@ function rankBefore(following: string): string {
 
 function rankMid(previous: string, following: string): string {
   if (previous >= following) {
-    throw new Error('previous must be strictly less than following');
+    throw new Error("previous must be strictly less than following");
   }
 
   const maxLength = Math.max(previous.length, following.length);
-  let result = '';
+  let result = "";
 
   for (let index = 0; index <= maxLength; index += 1) {
-    const prevValue = index < previous.length ? charToValue(previous[index]) : 0;
+    const prevValue =
+      index < previous.length ? charToValue(previous[index]) : 0;
     const nextValue =
       index < following.length ? charToValue(following[index]) : BASE;
 

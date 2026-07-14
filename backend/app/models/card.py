@@ -19,6 +19,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 
 if TYPE_CHECKING:
+    from app.models.board_column import BoardColumn
     from app.models.comment import Comment
 
 
@@ -97,6 +98,11 @@ class Card(Base):
     comments: Mapped[list[Comment]] = relationship(
         back_populates="card",
         cascade="all, delete-orphan",
+    )
+
+    column: Mapped[BoardColumn] = relationship(
+        "BoardColumn",
+        back_populates="cards",
     )
 
 

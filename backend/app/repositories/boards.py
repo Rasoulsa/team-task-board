@@ -2,8 +2,11 @@ import uuid
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models.board import Board
+from app.models.board_column import BoardColumn
+from app.models.card import Card
 
 
 class BoardRepository:
@@ -40,3 +43,37 @@ class BoardRepository:
 
     async def delete(self, board: Board) -> None:
         await self.session.delete(board)
+
+    async def get_kanban(self, board_id: uuid.UUID) -> Board | None:
+        statement = (
+            select(Board)
+            .where(Board.id == board_id)
+            .options(
+                selectinload(Board.columns)
+                .selectinload(BoardColumn.cards)
+                .selectinload(Card.labels),
+                selectinload(Board.columns)
+                .selectinload(BoardColumn.cards)
+                .selectinload(Card.assignees),
+                selectinload(Board.columns)
+                .selectinload(BoardColumn.cards)
+                .selectinload(Card.checklist_items),
+            )
+        )
+
+        result = await self.session.execute(statement)
+        board = result.unique().scalar_one_or_none()
+
+        if board is None:
+            return None
+
+        # BoardColumn is ordered by integer `position`.
+        board.columns.sort(key=lambda column: column.position)
+
+        for column in board.columns:
+            active_cards = [card for card in column.cards if not getattr(card, "is_deleted", False)]
+            # Cards use LexoRank string ordering.
+            active_cards.sort(key=lambda card: card.rank)
+            column.cards = active_cards
+
+        return board

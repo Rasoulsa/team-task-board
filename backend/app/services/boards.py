@@ -8,7 +8,10 @@ from app.models.board import Board
 from app.models.enums import OrganizationRole
 from app.models.user import User
 from app.repositories.boards import BoardRepository
+from app.repositories.columns import ColumnRepository
 from app.repositories.projects import ProjectRepository
+
+DEFAULT_COLUMN_NAMES = ["To Do", "In Progress", "Done"]
 
 
 class BoardService:
@@ -16,6 +19,7 @@ class BoardService:
         self.session = session
         self.boards = BoardRepository(session)
         self.projects = ProjectRepository(session)
+        self.columns = ColumnRepository(session)
 
     async def list_boards(
         self,
@@ -96,6 +100,13 @@ class BoardService:
             description=description,
         )
 
+        for position, column_name in enumerate(DEFAULT_COLUMN_NAMES):
+            await self.columns.create(
+                board_id=board.id,
+                name=column_name,
+                position=position,
+            )
+
         await self.session.commit()
         await self.session.refresh(board)
 
@@ -165,3 +176,23 @@ class BoardService:
 
         await self.boards.delete(board)
         await self.session.commit()
+
+    async def get_kanban_board(
+        self,
+        *,
+        board_id: uuid.UUID,
+        current_user: User,
+    ) -> Board:
+        await self.get_board(
+            board_id=board_id,
+            current_user=current_user,
+        )
+
+        board = await self.boards.get_kanban(board_id)
+        if board is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Board not found",
+            )
+
+        return board

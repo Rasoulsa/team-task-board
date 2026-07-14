@@ -9,6 +9,7 @@ from app.db.base import Base
 
 if TYPE_CHECKING:
     from app.models.board import Board
+    from app.models.card import Card
 
 
 class BoardColumn(Base):
@@ -40,4 +41,11 @@ class BoardColumn(Base):
     board: Mapped["Board"] = relationship(
         "Board",
         back_populates="columns",
+    )
+
+    cards: Mapped[list["Card"]] = relationship(
+        "Card",
+        back_populates="column",
+        cascade="all, delete-orphan",
+        order_by="Card.rank",
     )

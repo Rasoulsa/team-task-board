@@ -171,7 +171,7 @@ export function BoardsPage() {
           <div className="mt-4 rounded-2xl border border-dashed border-slate-700 p-8 text-center">
             <p className="text-slate-300">No boards yet.</p>
             <p className="mt-1 text-sm text-slate-500">
-              Create a board to prepare for the Kanban UI phase.
+              Create a board to start managing cards with the Kanban UI.
             </p>
           </div>
         ) : null}
@@ -189,13 +189,12 @@ export function BoardsPage() {
               </p>
 
               <div className="mt-4 flex items-center gap-2">
-                <button
-                  type="button"
-                  className="rounded-lg bg-slate-800 px-3 py-2 text-sm text-slate-400"
-                  disabled
+                <Link
+                to={`/projects/${projectId}/boards/${board.id}`}
+                className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-500"
                 >
-                  Kanban soon
-                </button>
+                  Open Kanban
+                </Link>
 
                 <button
                   type="button"
