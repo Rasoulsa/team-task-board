@@ -6,7 +6,11 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.board_access import get_board_and_org_for_card
-from app.api.deps import get_current_user, get_db_session
+from app.api.deps import (
+    get_current_user,
+    get_db_session,
+    get_event_bridge,
+)
 from app.api.rbac import require_org_role
 from app.models.enums import OrganizationRole
 from app.models.user import User
@@ -15,6 +19,7 @@ from app.repositories.comments import CommentRepository
 from app.schemas.comment import CommentCreate, CommentRead
 from app.services.activity import ActivityService
 from app.services.comments import CommentService
+from app.ws.pubsub import RedisEventBridge
 
 router = APIRouter(tags=["comments"])
 
@@ -60,6 +65,7 @@ async def create_comment(
     payload: CommentCreate,
     session: AsyncSession = Depends(get_db_session),
     current_user: User = Depends(get_current_user),
+    event_bridge: RedisEventBridge = Depends(get_event_bridge),
 ) -> CommentRead:
     board_id, org_id = await get_board_and_org_for_card(session, card_id)
     await require_org_role(
@@ -77,4 +83,8 @@ async def create_comment(
         body=payload.body,
     )
     await session.commit()
+
+    for event in service.collect_events():
+        await event_bridge.publish(event)
+
     return CommentRead.model_validate(comment)

@@ -21,6 +21,7 @@ from app.schemas.card import (
 )
 from app.services.activity import ActivityService
 from app.utils.lexorank import rank_between
+from app.ws.events import EventType, RealtimeEvent
 
 
 class CardService:
@@ -31,6 +32,20 @@ class CardService:
     ) -> None:
         self.repository = repository
         self.activity_service = activity_service
+        self._pending_events: list[RealtimeEvent] = []
+
+    def _queue_event(self, event: RealtimeEvent) -> None:
+        self._pending_events.append(event)
+
+    def collect_events(self) -> list[RealtimeEvent]:
+        """Return queued events and clear the buffer.
+
+        The caller is responsible for publishing these events, and
+        should do so only after the surrounding transaction commits.
+        """
+        events = self._pending_events
+        self._pending_events = []
+        return events
 
     async def list_cards(self, column_id: uuid.UUID) -> list[Card]:
         return await self.repository.list_by_column(column_id)
@@ -50,7 +65,9 @@ class CardService:
         actor_id: uuid.UUID,
         payload: CardCreate,
     ) -> Card:
-        last_rank = await self.repository.get_last_rank_in_column(column_id)
+        last_rank = await self.repository.get_last_rank_in_column(
+            column_id,
+        )
         new_rank = rank_between(last_rank, None)
 
         card = Card(
@@ -73,7 +90,23 @@ class CardService:
             meta={"title": created.title},
         )
 
-        return await self.get_card(created.id)
+        full_card = await self.get_card(created.id)
+
+        self._queue_event(
+            RealtimeEvent(
+                type=EventType.CARD_CREATED,
+                board_id=str(board_id),
+                actor_id=str(actor_id),
+                payload={
+                    "id": str(full_card.id),
+                    "column_id": str(full_card.column_id),
+                    "title": full_card.title,
+                    "rank": full_card.rank,
+                },
+            ),
+        )
+
+        return full_card
 
     async def update_card(
         self,
@@ -104,7 +137,18 @@ class CardService:
             meta={},
         )
 
-        return await self.get_card(card.id)
+        updated = await self.get_card(card.id)
+
+        self._queue_event(
+            RealtimeEvent(
+                type=EventType.CARD_UPDATED,
+                board_id=str(board_id),
+                actor_id=str(actor_id),
+                payload={"id": str(updated.id)},
+            ),
+        )
+
+        return updated
 
     async def move_card(
         self,
@@ -140,7 +184,22 @@ class CardService:
             meta={"column_id": str(payload.target_column_id)},
         )
 
-        return await self.get_card(card.id)
+        moved = await self.get_card(card.id)
+
+        self._queue_event(
+            RealtimeEvent(
+                type=EventType.CARD_MOVED,
+                board_id=str(board_id),
+                actor_id=str(actor_id),
+                payload={
+                    "id": str(moved.id),
+                    "column_id": str(moved.column_id),
+                    "rank": moved.rank,
+                },
+            ),
+        )
+
+        return moved
 
     async def delete_card(
         self,
@@ -158,6 +217,15 @@ class CardService:
             entity_type="card",
             entity_id=card.id,
             meta={},
+        )
+
+        self._queue_event(
+            RealtimeEvent(
+                type=EventType.CARD_DELETED,
+                board_id=str(board_id),
+                actor_id=str(actor_id),
+                payload={"id": str(card.id)},
+            ),
         )
 
     async def restore_card(
@@ -182,7 +250,22 @@ class CardService:
             meta={},
         )
 
-        return await self.get_card(card.id)
+        restored = await self.get_card(card.id)
+
+        self._queue_event(
+            RealtimeEvent(
+                type=EventType.CARD_RESTORED,
+                board_id=str(board_id),
+                actor_id=str(actor_id),
+                payload={
+                    "id": str(restored.id),
+                    "column_id": str(restored.column_id),
+                    "rank": restored.rank,
+                },
+            ),
+        )
+
+        return restored
 
     async def add_label(
         self,

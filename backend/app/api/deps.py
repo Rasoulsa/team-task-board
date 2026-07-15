@@ -13,6 +13,7 @@ from app.core.security import decode_token
 from app.db.session import get_db_session
 from app.models.user import User
 from app.repositories.users import UserRepository
+from app.ws.pubsub import RedisEventBridge
 
 security = HTTPBearer(auto_error=False)
 
@@ -25,6 +26,11 @@ async def get_db() -> AsyncGenerator[AsyncSession]:
 async def get_redis(request: Request) -> Redis:
     """Return the Redis client owned by the current FastAPI application."""
     return cast(Redis, request.app.state.redis)
+
+
+async def get_event_bridge(request: Request) -> RedisEventBridge:
+    """Return the realtime event bridge owned by the FastAPI application."""
+    return cast(RedisEventBridge, request.app.state.event_bridge)
 
 
 async def rate_limit_auth(

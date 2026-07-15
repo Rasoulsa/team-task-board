@@ -6,7 +6,7 @@ A real-time Trello-style task-management platform for organizations, projects, b
 
 ## Current implementation
 
-The project currently provides a complete foundation for organization-based task management:
+The project currently provides a complete foundation for organization-based task management, a fully interactive Kanban board, and live real-time updates:
 
 - JWT authentication with refresh-token rotation
 - Password-reset token foundation
@@ -18,8 +18,10 @@ The project currently provides a complete foundation for organization-based task
 - Board activity records
 - React authentication flow and authenticated application shell
 - Projects and boards frontend views
+- Kanban board with drag-and-drop columns and cards
+- Real-time board updates over WebSocket, with online presence tracking
 
-Kanban drag-and-drop, real-time UI updates, notifications, reporting, and CI/CD are planned next.
+Notifications, reporting, and CI/CD are planned next.
 
 ---
 
@@ -64,14 +66,22 @@ Repository layer
 Data layer (PostgreSQL, Redis)
 ```
 
+Real-time updates run alongside this flow: services return domain events,
+routers publish them to Redis Pub/Sub after a successful commit, and a
+per-process WebSocket ConnectionManager broadcasts them to connected clients
+on the relevant board. See
+[docs/architecture/realtime-websocket.md](docs/architecture/realtime-websocket.md)
+for details.
+
 **Backend**
 ```text
 backend/
 ├── app/
-│   ├── api/            # FastAPI routers and dependencies
+│   ├── api/            # FastAPI routers and dependencies (incl. WebSocket routes)
 │   ├── core/           # Settings, security, logging, exceptions
 │   ├── db/             # Database session and base configuration
 │   ├── models/         # SQLAlchemy models
+│   ├── realtime/        # ConnectionManager, Redis EventBridge, presence tracker
 │   ├── repositories/   # Database query and persistence abstractions
 │   ├── schemas/        # Pydantic request/response schemas
 │   ├── services/       # Business rules and application workflows
@@ -87,6 +97,7 @@ frontend/
     ├── app/            # Routing and application composition
     ├── core/           # HTTP client, configuration, shared utilities
     ├── features/       # Feature-oriented UI, services, repositories, state
+    │   └── realtime/   # SocketClient, useBoardSocket
     └── shared/         # Shared UI components and common types
 ```
 
@@ -133,6 +144,14 @@ Permissions are enforced by backend dependencies and service-layer authorization
 - Soft delete and restore cards
 - Board activity log preserved across card deletion and restoration
 
+### Real-time updates
+- WebSocket endpoint per board (/api/v1/ws/boards/{board_id}) with JWT auth handshake
+- Redis Pub/Sub bridge so events broadcast correctly across multiple backend replicas
+- Live broadcast of card creation, update, move, delete, restore, and new comments to every connected board member
+- Redis-backed presence tracking (TTL heartbeat) per board
+- Self-originated events are filtered client-side to avoid redundant refetches after an optimistic update
+- No manual page refresh required to see changes made by other members
+
 ### Frontend
 - Authentication pages for registration and login
 - Persisted authenticated session state
@@ -148,6 +167,7 @@ Permissions are enforced by backend dependencies and service-layer authorization
 - Card modal with title, description, priority, due date, checklist, labels, assignees
 - TanStack Query caching with optimistic updates and invalidation
 - CardRepository and CardService
+- SocketClient and useBoardSocket hook for live board updates
 
 ---
 
@@ -247,6 +267,14 @@ The card-management API supports card creation, update, movement, soft deletion,
 
 Refer to the interactive OpenAPI documentation for the exact request and response schemas available in the current backend version.
 
+### Real-time (WebSocket)
+
+```text
+GET    /api/v1/ws/boards/{board_id}
+```
+
+See [docs/api/websocket.md](docs/api/websocket.md) for the connection handshake, message envelope, and event type reference.
+
 ---
 
 ## Running locally
@@ -265,8 +293,10 @@ From the repository root:
 
 ```bash
 docker compose up -d db redis
-Backend
-bash
+```
+
+### Backend
+```bash
 cd backend
 uv sync
 uv run alembic upgrade head
@@ -297,8 +327,9 @@ http://localhost:5174
 
 Ensure the frontend API URL environment variable points to your local backend, for example:
 
-```awk
+```ini
 VITE_API_URL=http://localhost:8010/api/v1
+VITE_WS_URL=ws://localhost:8010/api/v1/ws
 ```
 
 ---
@@ -322,6 +353,10 @@ Run tests with coverage:
 uv run pytest -v --cov=app
 ```
 
+Real-time-specific tests live under `backend/tests/realtime/` and cover
+WebSocket connect/accept behavior, auth handshake rejection, and event
+broadcast through the Redis Pub/Sub bridge.
+
 ### Frontend
 
 Run from `frontend/`:
@@ -333,6 +368,7 @@ npm run build
 ```
 
 ### Test environment notes
+
 Integration tests use PostgreSQL and Redis. Use a separate database and Redis database for test execution where possible.
 
 For example:
@@ -390,7 +426,7 @@ make down
 [x] RBAC, projects, boards, columns, and application shell
 [x] Cards, ordering, comments, mentions, and activity logging backend
 [x] Kanban board UI and drag-and-drop interaction
-[ ] Real-time updates with WebSockets
+[x] Real-time updates with WebSockets
 [ ] Notifications and Celery background tasks
 [ ] Reporting, caching, and activity feed UI
 [ ] Production Docker, Nginx, and observability
@@ -402,6 +438,7 @@ make down
 - Run Alembic migrations before starting a backend against a new database.
 - Keep the backend and frontend LexoRank implementations aligned.
 - Treat the backend as the authorization and data-validation source of truth.
+- Card mutations must commit to the database before their corresponding real-time event is published, so remote clients never see an event for a change that was rolled back.
 
 ---
 
@@ -413,14 +450,22 @@ Recommended documentation structure:
 
 ```text
 docs/
-├── architecture.md       # Application architecture and design decisions
-├── api.md                # API conventions and endpoint notes
-├── database.md           # Database entities and migration notes
-├── security.md           # Authentication, authorization, and security decisions
-├── testing.md            # Test strategy and local test setup
-└── journal.md            # Development progress and implementation journal
+├── api/
+│   ├── cards.md                          # Card, comment, label, checklist API notes
+│   ├── endpoints.md                      # Full REST endpoint reference
+│   └── websocket.md                      # WebSocket connection, auth, and event contract
+├── architecture/
+│   ├── backend-rbac-projects-boards.md   # RBAC, project/board/column design
+│   ├── cards-ordering-comments.md        # LexoRank ordering, comments, soft delete
+│   ├── frontend-app-shell.md             # Frontend routing, layout, DI approach
+│   ├── kanban-ui-dnd.md                  # Kanban board, drag-and-drop, optimistic LexoRank reorder
+│   └── realtime-websocket.md             # ConnectionManager, Redis Pub/Sub bridge, presence
+└── journal/
+    └── implementation-log.md             # Day-by-day implementation journal
 ```
 
 ---
 
 ## License
+
+see the [`LICENSE`](./LICENSE)

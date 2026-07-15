@@ -18,12 +18,14 @@ import { useMoveCard } from "../hooks/useMoveCard";
 import { CardPreview } from "./CardItem";
 import { CardModal } from "./CardModal";
 import { ColumnLane } from "./ColumnLane";
+import { useBoardSocket } from "../../realtime/useBoardSocket";
 
 interface KanbanBoardProps {
   boardId: string;
 }
 
 export function KanbanBoard({ boardId }: KanbanBoardProps) {
+  useBoardSocket(boardId);
   const {
     data: board,
     isLoading,

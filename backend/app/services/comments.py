@@ -5,11 +5,13 @@ import uuid
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models.comment import Comment, CommentMention
 from app.models.user import User
 from app.repositories.comments import CommentRepository
 from app.services.activity import ActivityService
+from app.ws.events import EventType, RealtimeEvent
 
 MENTION_PATTERN = re.compile(r"@([a-zA-Z0-9_.-]+)")
 
@@ -24,6 +26,19 @@ class CommentService:
         self.session = session
         self.repository = repository
         self.activity_service = activity_service
+        self._pending_events: list[RealtimeEvent] = []
+
+    def _queue_event(self, event: RealtimeEvent) -> None:
+        self._pending_events.append(event)
+
+    def collect_events(self) -> list[RealtimeEvent]:
+        """Return queued events and clear the buffer.
+
+        Publish these only after the surrounding transaction commits.
+        """
+        events = self._pending_events
+        self._pending_events = []
+        return events
 
     async def list_comments(self, card_id: uuid.UUID) -> list[Comment]:
         return await self.repository.list_by_card(card_id)
@@ -60,7 +75,22 @@ class CommentService:
             meta={"mentions": [str(uid) for uid in mentioned_users]},
         )
 
-        return await self._reload(created.id)
+        reloaded = await self._reload(created.id)
+
+        self._queue_event(
+            RealtimeEvent(
+                type=EventType.COMMENT_CREATED,
+                board_id=str(board_id),
+                actor_id=str(author_id),
+                payload={
+                    "id": str(reloaded.id),
+                    "card_id": str(card_id),
+                    "mentions": [str(uid) for uid in mentioned_users],
+                },
+            ),
+        )
+
+        return reloaded
 
     async def _resolve_mentions(self, body: str) -> list[uuid.UUID]:
         usernames = set(MENTION_PATTERN.findall(body))
@@ -68,12 +98,12 @@ class CommentService:
         if not usernames:
             return []
 
-        # We match against email local-part or full email prefix.
-        stmt = select(User).where(User.email.in_([f"{name}" for name in usernames]))
+        stmt = select(User).where(
+            User.email.in_([f"{name}" for name in usernames]),
+        )
         result = await self.session.execute(stmt)
         matched = list(result.scalars().all())
 
-        # Also try email local-part matching.
         if not matched:
             all_users_stmt = select(User)
             all_result = await self.session.execute(all_users_stmt)
@@ -84,8 +114,6 @@ class CommentService:
         return [user.id for user in matched]
 
     async def _reload(self, comment_id: uuid.UUID) -> Comment:
-        from sqlalchemy.orm import selectinload
-
         stmt = (
             select(Comment).where(Comment.id == comment_id).options(selectinload(Comment.mentions))
         )
