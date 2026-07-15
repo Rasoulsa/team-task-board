@@ -169,6 +169,16 @@ DELETE /columns/{column_id}
 
 Minimum role: `MEMBER`
 
+
+### Real-time (WebSocket)
+
+```text
+GET    /api/v1/ws/boards/{board_id}
+```
+
+See `websocket.md` for the connection handshake, message
+envelope, and event type reference.
+
 ## Invitations
 
 ### List invitations

@@ -9,7 +9,11 @@ from app.api.board_access import (
     get_board_and_org_for_card,
     get_board_and_org_for_column,
 )
-from app.api.deps import get_current_user, get_db_session
+from app.api.deps import (
+    get_current_user,
+    get_db_session,
+    get_event_bridge,
+)
 from app.api.rbac import require_org_role
 from app.models.enums import OrganizationRole
 from app.models.user import User
@@ -30,6 +34,7 @@ from app.schemas.card import (
 )
 from app.services.activity import ActivityService
 from app.services.cards import CardService
+from app.ws.pubsub import RedisEventBridge
 
 router = APIRouter(tags=["cards"])
 
@@ -37,6 +42,14 @@ router = APIRouter(tags=["cards"])
 def build_card_service(session: AsyncSession) -> CardService:
     activity_service = ActivityService(ActivityRepository(session))
     return CardService(CardRepository(session), activity_service)
+
+
+async def _publish(
+    event_bridge: RedisEventBridge,
+    service: CardService,
+) -> None:
+    for event in service.collect_events():
+        await event_bridge.publish(event)
 
 
 @router.get(
@@ -71,6 +84,7 @@ async def create_card(
     payload: CardCreate,
     session: AsyncSession = Depends(get_db_session),
     current_user: User = Depends(get_current_user),
+    event_bridge: RedisEventBridge = Depends(get_event_bridge),
 ) -> CardRead:
     board_id, org_id = await get_board_and_org_for_column(session, column_id)
     await require_org_role(
@@ -88,6 +102,7 @@ async def create_card(
         payload=payload,
     )
     await session.commit()
+    await _publish(event_bridge, service)
     return CardRead.model_validate(card)
 
 
@@ -116,6 +131,7 @@ async def update_card(
     payload: CardUpdate,
     session: AsyncSession = Depends(get_db_session),
     current_user: User = Depends(get_current_user),
+    event_bridge: RedisEventBridge = Depends(get_event_bridge),
 ) -> CardRead:
     board_id, org_id = await get_board_and_org_for_card(session, card_id)
     await require_org_role(
@@ -133,6 +149,7 @@ async def update_card(
         payload=payload,
     )
     await session.commit()
+    await _publish(event_bridge, service)
     return CardRead.model_validate(card)
 
 
@@ -142,6 +159,7 @@ async def move_card(
     payload: CardMove,
     session: AsyncSession = Depends(get_db_session),
     current_user: User = Depends(get_current_user),
+    event_bridge: RedisEventBridge = Depends(get_event_bridge),
 ) -> CardRead:
     board_id, org_id = await get_board_and_org_for_card(session, card_id)
     await require_org_role(
@@ -159,6 +177,7 @@ async def move_card(
         payload=payload,
     )
     await session.commit()
+    await _publish(event_bridge, service)
     return CardRead.model_validate(card)
 
 
@@ -170,6 +189,7 @@ async def delete_card(
     card_id: uuid.UUID,
     session: AsyncSession = Depends(get_db_session),
     current_user: User = Depends(get_current_user),
+    event_bridge: RedisEventBridge = Depends(get_event_bridge),
 ) -> None:
     board_id, org_id = await get_board_and_org_for_card(session, card_id)
     await require_org_role(
@@ -186,6 +206,7 @@ async def delete_card(
         actor_id=current_user.id,
     )
     await session.commit()
+    await _publish(event_bridge, service)
 
 
 @router.post("/cards/{card_id}/restore", response_model=CardRead)
@@ -193,6 +214,7 @@ async def restore_card(
     card_id: uuid.UUID,
     session: AsyncSession = Depends(get_db_session),
     current_user: User = Depends(get_current_user),
+    event_bridge: RedisEventBridge = Depends(get_event_bridge),
 ) -> CardRead:
     board_id, org_id = await get_board_and_org_for_card(session, card_id)
     await require_org_role(
@@ -209,6 +231,7 @@ async def restore_card(
         actor_id=current_user.id,
     )
     await session.commit()
+    await _publish(event_bridge, service)
     return CardRead.model_validate(card)
 
 
@@ -222,6 +245,7 @@ async def add_label(
     payload: CardLabelCreate,
     session: AsyncSession = Depends(get_db_session),
     current_user: User = Depends(get_current_user),
+    event_bridge: RedisEventBridge = Depends(get_event_bridge),
 ) -> CardLabelRead:
     _, org_id = await get_board_and_org_for_card(session, card_id)
     await require_org_role(
@@ -234,6 +258,7 @@ async def add_label(
     service = build_card_service(session)
     label = await service.add_label(card_id, payload)
     await session.commit()
+    await _publish(event_bridge, service)
     return CardLabelRead.model_validate(label)
 
 
@@ -247,6 +272,7 @@ async def add_assignee(
     payload: CardAssigneeCreate,
     session: AsyncSession = Depends(get_db_session),
     current_user: User = Depends(get_current_user),
+    event_bridge: RedisEventBridge = Depends(get_event_bridge),
 ) -> CardAssigneeRead:
     _, org_id = await get_board_and_org_for_card(session, card_id)
     await require_org_role(
@@ -259,6 +285,7 @@ async def add_assignee(
     service = build_card_service(session)
     assignee = await service.add_assignee(card_id, payload)
     await session.commit()
+    await _publish(event_bridge, service)
     return CardAssigneeRead.model_validate(assignee)
 
 
@@ -272,6 +299,7 @@ async def add_checklist_item(
     payload: ChecklistItemCreate,
     session: AsyncSession = Depends(get_db_session),
     current_user: User = Depends(get_current_user),
+    event_bridge: RedisEventBridge = Depends(get_event_bridge),
 ) -> ChecklistItemRead:
     _, org_id = await get_board_and_org_for_card(session, card_id)
     await require_org_role(
@@ -284,6 +312,7 @@ async def add_checklist_item(
     service = build_card_service(session)
     item = await service.add_checklist_item(card_id, payload)
     await session.commit()
+    await _publish(event_bridge, service)
     return ChecklistItemRead.model_validate(item)
 
 
@@ -296,8 +325,10 @@ async def update_checklist_item(
     payload: ChecklistItemUpdate,
     session: AsyncSession = Depends(get_db_session),
     _current_user: User = Depends(get_current_user),
+    event_bridge: RedisEventBridge = Depends(get_event_bridge),
 ) -> ChecklistItemRead:
     service = build_card_service(session)
     item = await service.update_checklist_item(item_id, payload)
     await session.commit()
+    await _publish(event_bridge, service)
     return ChecklistItemRead.model_validate(item)

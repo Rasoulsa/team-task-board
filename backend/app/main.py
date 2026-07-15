@@ -8,10 +8,16 @@ from fastapi.responses import JSONResponse
 from app.api.v1.router import api_router
 from app.core.config import settings
 from app.core.exceptions import AppException
-from app.core.exceptions import app_exception_handler as handle_app_exception
+from app.core.exceptions import (
+    app_exception_handler as handle_app_exception,
+)
 from app.core.logging import configure_logging, logger
 from app.db.redis import create_redis_client
 from app.db.session import engine
+from app.ws.manager import connection_manager
+from app.ws.presence import PresenceTracker
+from app.ws.pubsub import RedisEventBridge
+from app.ws.router import router as ws_router
 
 
 @asynccontextmanager
@@ -31,12 +37,20 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await redis_client.aclose()
         raise
 
+    event_bridge = RedisEventBridge(redis_client, connection_manager)
+    presence = PresenceTracker(redis_client)
+
+    await event_bridge.start()
+
+    app.state.event_bridge = event_bridge
+    app.state.presence = presence
+
     logger.info("startup", app=settings.APP_NAME, env=settings.ENV)
 
     try:
         yield
     finally:
-        # These must run while the current event loop is still alive.
+        await event_bridge.stop()
         await redis_client.aclose()
         await engine.dispose()
         logger.info("shutdown")
@@ -65,9 +79,13 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    app.add_exception_handler(AppException, registered_app_exception_handler)
+    app.add_exception_handler(
+        AppException,
+        registered_app_exception_handler,
+    )
 
     app.include_router(api_router, prefix="/api/v1")
+    app.include_router(ws_router, prefix="/api/v1")
 
     @app.get("/health", tags=["health"])
     async def health() -> dict[str, str]:

@@ -86,7 +86,39 @@ and a preserved activity log.
 - Integration tests use the existing testcontainers fixtures.
 - Frontend `lexorank.test.ts` mirrors backend behavior.
 
-## Next
+## Kanban UI & drag-and-drop (backfilled)
 
-Kanban UI with @dnd-kit, optimistic reorder using the shared
-LexoRank util, CardModal, and TanStack Query caching.
+- Built `KanbanBoard`, `ColumnLane`, and `CardItem` using `@dnd-kit/core` and
+  `@dnd-kit/sortable`.
+- Implemented optimistic reordering: rank computed client-side via the
+  shared LexoRank implementation, cache updated immediately via TanStack
+  Query, then persisted through `useMoveCard`, with rollback on failure.
+- Added `CardModal` covering title, description, priority, due date,
+  checklist, labels, and assignees.
+- Added `CardRepository`/`CardService` and card mutation hooks
+  (`useCreateCard`, `useMoveCard`, `useUpdateCard`, `useDeleteCard`,
+  `useRestoreCard`, label/assignee/checklist hooks), all reading/writing a
+  single board-scoped query cache entry.
+- Added response normalization in `CardRepository` (e.g.
+  `checklist_items` → `checklist`) so components use one consistent `Card`
+  shape regardless of backend field naming.
+
+## Real-time updates
+
+- Added `ConnectionManager` for per-board WebSocket connection registries.
+- Added Redis Pub/Sub `EventBridge` so events broadcast correctly across
+  multiple backend replicas, not just the process holding the connection.
+- Card service mutations (create, update, move, delete, restore) and comment
+  creation now return domain events; the router publishes them after the DB
+  transaction commits successfully.
+- Added WebSocket auth handshake: token validated via query param before
+  accepting the connection; board membership enforced before accept.
+- Added Redis-set + TTL-based presence tracking per board.
+- Frontend: added `SocketClient` (reconnect-aware WebSocket wrapper) and
+  `useBoardSocket` hook. Board view now updates live for card moves, edits,
+  deletes, restores, and new comments without a manual refresh.
+- Self-originated events are filtered out on the frontend using `actor_id`
+  to avoid redundant refetches / flicker after an optimistic update.
+- Verified with a two-session manual test: mutation in session B reflects in
+  session A live; mutation in session A does not trigger a redundant
+  refetch in session A itself.
