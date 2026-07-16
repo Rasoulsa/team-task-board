@@ -3,37 +3,37 @@ from __future__ import annotations
 from app.utils.lexorank import DEFAULT_RANK, rank_between
 
 
-def test_both_none_returns_default():
+def test_both_none_returns_default() -> None:
     assert rank_between(None, None) == DEFAULT_RANK
 
 
-def test_after_previous_is_greater():
+def test_after_previous_is_greater() -> None:
     previous = "n"
     result = rank_between(previous, None)
     assert result > previous
 
 
-def test_before_following_is_smaller():
+def test_before_following_is_smaller() -> None:
     following = "n"
     result = rank_between(None, following)
     assert result < following
 
 
-def test_between_two_ranks_is_strictly_between():
+def test_between_two_ranks_is_strictly_between() -> None:
     previous = "a"
     following = "c"
     result = rank_between(previous, following)
     assert previous < result < following
 
 
-def test_between_adjacent_ranks_creates_deeper_rank():
+def test_between_adjacent_ranks_creates_deeper_rank() -> None:
     previous = "a"
     following = "b"
     result = rank_between(previous, following)
     assert previous < result < following
 
 
-def test_sequential_inserts_keep_order():
+def test_sequential_inserts_keep_order() -> None:
     ranks: list[str] = []
 
     first = rank_between(None, None)
@@ -48,7 +48,7 @@ def test_sequential_inserts_keep_order():
     assert ranks == sorted(ranks)
 
 
-def test_many_middle_inserts_stay_ordered():
+def test_many_middle_inserts_stay_ordered() -> None:
     low = rank_between(None, None)
     high = rank_between(low, None)
 
@@ -62,13 +62,13 @@ def test_many_middle_inserts_stay_ordered():
     assert ordered == sorted(ordered)
 
 
-def test_all_max_previous_appends():
+def test_all_max_previous_appends() -> None:
     previous = "z"
     result = rank_between(previous, None)
     assert result > previous
 
 
-def test_invalid_order_raises():
+def test_invalid_order_raises() -> None:
     import pytest
 
     with pytest.raises(ValueError):

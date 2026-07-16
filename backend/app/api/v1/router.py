@@ -1,27 +1,29 @@
 from fastapi import APIRouter
 
-from app.api.v1.routes import activity, cards, comments
-from app.api.v1.routes.auth import router as auth_router
-from app.api.v1.routes.boards import router as boards_router
-from app.api.v1.routes.columns import router as columns_router
-from app.api.v1.routes.invitations import router as invitations_router
-from app.api.v1.routes.organizations import router as organizations_router
-from app.api.v1.routes.projects import router as projects_router
+from app.api.v1.routes import (
+    activity,
+    auth,
+    boards,
+    cards,
+    columns,
+    comments,
+    invitations,
+    notifications,
+    organizations,
+    ping,
+    projects,
+)
 
 api_router = APIRouter()
 
-
-@api_router.get("/ping", tags=["system"])
-async def ping() -> dict[str, str]:
-    return {"message": "pong"}
-
-
-api_router.include_router(auth_router)
-api_router.include_router(organizations_router)
-api_router.include_router(projects_router)
-api_router.include_router(boards_router)
-api_router.include_router(columns_router)
-api_router.include_router(invitations_router)
+api_router.include_router(ping.router)
+api_router.include_router(auth.router)
+api_router.include_router(organizations.router)
+api_router.include_router(projects.router)
+api_router.include_router(boards.router)
+api_router.include_router(columns.router)
 api_router.include_router(cards.router)
 api_router.include_router(comments.router)
+api_router.include_router(invitations.router)
 api_router.include_router(activity.router)
+api_router.include_router(notifications.router)

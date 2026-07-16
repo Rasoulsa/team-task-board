@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from typing import Any
 
 from app.core.exceptions import NotFoundException
 from app.models.card import (
@@ -20,7 +21,9 @@ from app.schemas.card import (
     ChecklistItemUpdate,
 )
 from app.services.activity import ActivityService
+from app.services.notification_dispatch import PendingNotificationTask
 from app.utils.lexorank import rank_between
+from app.worker.tasks import notify_card_assigned
 from app.ws.events import EventType, RealtimeEvent
 
 
@@ -33,6 +36,7 @@ class CardService:
         self.repository = repository
         self.activity_service = activity_service
         self._pending_events: list[RealtimeEvent] = []
+        self._pending_notifications: list[PendingNotificationTask] = []
 
     def _queue_event(self, event: RealtimeEvent) -> None:
         self._pending_events.append(event)
@@ -46,6 +50,21 @@ class CardService:
         events = self._pending_events
         self._pending_events = []
         return events
+
+    def _queue_notification(self, task: Any, **kwargs: Any) -> None:
+        self._pending_notifications.append(
+            PendingNotificationTask(task=task, kwargs=kwargs),
+        )
+
+    def collect_notification_tasks(self) -> list[PendingNotificationTask]:
+        """Return queued notification tasks and clear the buffer.
+
+        The caller is responsible for enqueuing these, and should do
+        so only after the surrounding transaction commits.
+        """
+        tasks = self._pending_notifications
+        self._pending_notifications = []
+        return tasks
 
     async def list_cards(self, column_id: uuid.UUID) -> list[Card]:
         return await self.repository.list_by_column(column_id)
@@ -285,14 +304,29 @@ class CardService:
         self,
         card_id: uuid.UUID,
         payload: CardAssigneeCreate,
+        *,
+        board_id: uuid.UUID,
+        actor_id: uuid.UUID,
+        actor_name: str,
     ) -> CardAssignee:
-        await self.get_card(card_id)
+        card = await self.get_card(card_id)
 
         assignee = CardAssignee(
             card_id=card_id,
             user_id=payload.user_id,
         )
-        return await self.repository.add_assignee(assignee)
+        created = await self.repository.add_assignee(assignee)
+        if payload.user_id != actor_id:
+            self._queue_notification(
+                notify_card_assigned,
+                user_id=str(payload.user_id),
+                assigner_name=actor_name,
+                card_id=str(card_id),
+                card_title=card.title,
+                board_id=str(board_id),
+            )
+
+        return created
 
     async def add_checklist_item(
         self,

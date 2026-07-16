@@ -12,7 +12,9 @@ from app.core.config import settings
 from app.core.security import decode_token
 from app.db.session import get_db_session
 from app.models.user import User
+from app.repositories.notifications import NotificationRepository
 from app.repositories.users import UserRepository
+from app.services.notifications import NotificationService
 from app.ws.pubsub import RedisEventBridge
 
 security = HTTPBearer(auto_error=False)
@@ -21,6 +23,14 @@ security = HTTPBearer(auto_error=False)
 async def get_db() -> AsyncGenerator[AsyncSession]:
     async for session in get_db_session():
         yield session
+
+
+def get_notification_service(
+    session: AsyncSession = Depends(get_db),
+) -> NotificationService:
+    return NotificationService(
+        NotificationRepository(session),
+    )
 
 
 async def get_redis(request: Request) -> Redis:

@@ -1,13 +1,17 @@
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
+from httpx import AsyncClient
+from pytest_mock import MockerFixture
 
 
 @pytest.mark.asyncio
 async def test_create_and_list_cards(
-    authed_client,
-    seed_board_with_column,
-):
+    authed_client: AsyncClient,
+    seed_board_with_column: dict[str, Any],
+) -> None:
     """Create a card in a column and list it back."""
 
     column_id = seed_board_with_column["column_id"]
@@ -38,9 +42,9 @@ async def test_create_and_list_cards(
 
 @pytest.mark.asyncio
 async def test_cards_are_ordered_by_rank(
-    authed_client,
-    seed_board_with_column,
-):
+    authed_client: AsyncClient,
+    seed_board_with_column: dict[str, Any],
+) -> None:
     column_id = seed_board_with_column["column_id"]
 
     titles = ["A", "B", "C"]
@@ -66,9 +70,9 @@ async def test_cards_are_ordered_by_rank(
 
 @pytest.mark.asyncio
 async def test_soft_delete_and_restore_card(
-    authed_client,
-    seed_board_with_column,
-):
+    authed_client: AsyncClient,
+    seed_board_with_column: dict[str, Any],
+) -> None:
     column_id = seed_board_with_column["column_id"]
 
     create_response = await authed_client.post(
@@ -101,9 +105,9 @@ async def test_soft_delete_and_restore_card(
 
 @pytest.mark.asyncio
 async def test_move_card_between_columns(
-    authed_client,
-    seed_board_with_two_columns,
-):
+    authed_client: AsyncClient,
+    seed_board_with_two_columns: dict[str, Any],
+) -> None:
     source_column = seed_board_with_two_columns["column_a"]
     target_column = seed_board_with_two_columns["column_b"]
 
@@ -127,10 +131,15 @@ async def test_move_card_between_columns(
 
 @pytest.mark.asyncio
 async def test_comment_with_mention_records_activity(
-    authed_client,
-    seed_board_with_column,
-    mention_target_email,
-):
+    authed_client: AsyncClient,
+    seed_board_with_column: dict[str, Any],
+    mention_target_email: str,
+    mocker: MockerFixture,
+) -> None:
+    notify_mock = mocker.patch(
+        "app.services.comments.notify_card_mentioned.delay",
+    )
+
     column_id = seed_board_with_column["column_id"]
     board_id = seed_board_with_column["board_id"]
 
@@ -138,6 +147,7 @@ async def test_comment_with_mention_records_activity(
         f"/api/v1/columns/{column_id}/cards",
         json={"title": "Commentable"},
     )
+    assert create_card.status_code == 201
     card_id = create_card.json()["id"]
 
     mention_handle = mention_target_email.split("@")[0]
@@ -159,3 +169,5 @@ async def test_comment_with_mention_records_activity(
     actions = [entry["action"] for entry in activity_response.json()]
     assert "comment.created" in actions
     assert "card.created" in actions
+
+    notify_mock.assert_called_once()

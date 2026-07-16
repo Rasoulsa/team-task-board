@@ -122,3 +122,19 @@ and a preserved activity log.
 - Verified with a two-session manual test: mutation in session B reflects in
   session A live; mutation in session A does not trigger a redundant
   refetch in session A itself.
+
+  ## Notifications & Celery
+
+- Added Celery app, worker, and Beat; Redis broker/result backend.
+- Added `notifications` table + migration; NotificationRepository/Service.
+- Added notify_card_assigned / notify_card_mentioned / notify_due_date
+  tasks with retry (backoff + jitter) and email via SMTP (MailHog locally).
+- Beat task scan_due_cards notifies assignees of cards due within
+  DUE_REMINDER_HOURS.
+- Added per-user WS channel + /ws/notifications for live bell updates,
+  reusing the Day 6 SocketClient and event bridge.
+- Frontend: NotificationBell (live unread badge), NotificationPanel,
+  notification hooks + repository, useNotificationSocket.
+- Tests: eager-mode task creation test (mock email + publish), unread-count
+  endpoint test, NotificationBell render test.
+- Compose: added celery-worker, celery-beat, mailhog services.

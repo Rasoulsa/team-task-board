@@ -8,8 +8,13 @@ from app.models.card import (
     ChecklistItem,
 )
 from app.models.comment import Comment, CommentMention
-from app.models.enums import InvitationStatus, OrganizationRole
+from app.models.enums import (
+    InvitationStatus,
+    NotificationType,
+    OrganizationRole,
+)
 from app.models.invitation import Invitation
+from app.models.notification import Notification
 from app.models.org_member import OrgMember
 from app.models.organization import Organization
 from app.models.project import Project
@@ -27,6 +32,8 @@ __all__ = [
     "CommentMention",
     "Invitation",
     "InvitationStatus",
+    "Notification",
+    "NotificationType",
     "OrgMember",
     "Organization",
     "OrganizationRole",

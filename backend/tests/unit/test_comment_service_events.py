@@ -5,22 +5,27 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from pytest_mock import MockerFixture
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services.comments import CommentService
 from app.ws.events import EventType
 
 
 @pytest.mark.asyncio
-async def test_create_comment_queues_comment_created_event() -> None:
+async def test_create_comment_queues_comment_created_event(
+    mocker: MockerFixture,
+) -> None:
     board_id = uuid.uuid4()
     card_id = uuid.uuid4()
     author_id = uuid.uuid4()
     comment_id = uuid.uuid4()
     mentioned_user_id = uuid.uuid4()
 
-    session = MagicMock()
+    session = MagicMock(spec=AsyncSession)
 
     repository = MagicMock()
+    repository.session = session
     repository.create = AsyncMock(
         return_value=SimpleNamespace(id=comment_id),
     )
@@ -43,11 +48,15 @@ async def test_create_comment_queues_comment_created_event() -> None:
         mentions=[],
     )
 
-    service._resolve_mentions = AsyncMock(
-        return_value=[mentioned_user_id],
+    mocker.patch.object(
+        service,
+        "_resolve_mentions",
+        new=AsyncMock(return_value=[mentioned_user_id]),
     )
-    service._reload = AsyncMock(
-        return_value=reloaded_comment,
+    mocker.patch.object(
+        service,
+        "_reload",
+        new=AsyncMock(return_value=reloaded_comment),
     )
 
     result = await service.create_comment(
@@ -55,6 +64,7 @@ async def test_create_comment_queues_comment_created_event() -> None:
         card_id=card_id,
         author_id=author_id,
         body="Hello @member",
+        author_name="Test User",
     )
 
     assert result is reloaded_comment
@@ -85,15 +95,18 @@ async def test_create_comment_queues_comment_created_event() -> None:
 
 
 @pytest.mark.asyncio
-async def test_collect_events_clears_comment_service_queue() -> None:
+async def test_collect_events_clears_comment_service_queue(
+    mocker: MockerFixture,
+) -> None:
     board_id = uuid.uuid4()
     card_id = uuid.uuid4()
     author_id = uuid.uuid4()
     comment_id = uuid.uuid4()
 
-    session = MagicMock()
+    session = MagicMock(spec=AsyncSession)
 
     repository = MagicMock()
+    repository.session = session
     repository.create = AsyncMock(
         return_value=SimpleNamespace(id=comment_id),
     )
@@ -108,14 +121,22 @@ async def test_collect_events_clears_comment_service_queue() -> None:
         activity_service=activity_service,
     )
 
-    service._resolve_mentions = AsyncMock(return_value=[])
-    service._reload = AsyncMock(
-        return_value=SimpleNamespace(
-            id=comment_id,
-            card_id=card_id,
-            author_id=author_id,
-            body="No mentions",
-            mentions=[],
+    mocker.patch.object(
+        service,
+        "_resolve_mentions",
+        new=AsyncMock(return_value=[]),
+    )
+    mocker.patch.object(
+        service,
+        "_reload",
+        new=AsyncMock(
+            return_value=SimpleNamespace(
+                id=comment_id,
+                card_id=card_id,
+                author_id=author_id,
+                body="No mentions",
+                mentions=[],
+            ),
         ),
     )
 
@@ -124,6 +145,7 @@ async def test_collect_events_clears_comment_service_queue() -> None:
         card_id=card_id,
         author_id=author_id,
         body="No mentions",
+        author_name="Test User",
     )
 
     first_collection = service.collect_events()

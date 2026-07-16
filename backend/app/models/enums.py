@@ -13,3 +13,9 @@ class InvitationStatus(StrEnum):
     ACCEPTED = "accepted"
     EXPIRED = "expired"
     REVOKED = "revoked"
+
+
+class NotificationType(StrEnum):
+    CARD_ASSIGNED = "card_assigned"
+    CARD_MENTIONED = "card_mentioned"
+    DUE_DATE_REMINDER = "due_date_reminder"
