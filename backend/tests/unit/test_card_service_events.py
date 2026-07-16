@@ -5,13 +5,17 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from pytest_mock import MockerFixture
 
+from app.schemas.card import CardMove
 from app.services.cards import CardService
 from app.ws.events import EventType
 
 
 @pytest.mark.asyncio
-async def test_move_card_queues_card_moved_event() -> None:
+async def test_move_card_queues_card_moved_event(
+    mocker: MockerFixture,
+) -> None:
     board_id = uuid.uuid4()
     actor_id = uuid.uuid4()
     card_id = uuid.uuid4()
@@ -35,9 +39,13 @@ async def test_move_card_queues_card_moved_event() -> None:
         rank="m",
     )
 
-    service.get_card = AsyncMock(return_value=card)
+    mocker.patch.object(
+        service,
+        "get_card",
+        new=AsyncMock(return_value=card),
+    )
 
-    payload = SimpleNamespace(
+    payload = CardMove(
         target_column_id=target_column_id,
         previous_card_id=None,
         next_card_id=None,
@@ -79,7 +87,9 @@ async def test_move_card_queues_card_moved_event() -> None:
 
 
 @pytest.mark.asyncio
-async def test_collect_events_clears_card_service_queue() -> None:
+async def test_collect_events_clears_card_service_queue(
+    mocker: MockerFixture,
+) -> None:
     board_id = uuid.uuid4()
     actor_id = uuid.uuid4()
     card_id = uuid.uuid4()
@@ -102,9 +112,13 @@ async def test_collect_events_clears_card_service_queue() -> None:
         rank="m",
     )
 
-    service.get_card = AsyncMock(return_value=card)
+    mocker.patch.object(
+        service,
+        "get_card",
+        new=AsyncMock(return_value=card),
+    )
 
-    payload = SimpleNamespace(
+    payload = CardMove(
         target_column_id=column_id,
         previous_card_id=None,
         next_card_id=None,

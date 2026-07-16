@@ -1,11 +1,19 @@
 import uuid
 from collections.abc import AsyncIterator
+from typing import TypedDict
 
 import pytest_asyncio
 from asgi_lifespan import LifespanManager
 from httpx import ASGITransport, AsyncClient
 
 from app.main import app
+
+
+class AuthenticatedUser(TypedDict):
+    client: AsyncClient
+    user_id: str
+    email: str
+    access_token: str
 
 
 @pytest_asyncio.fixture(scope="function")
@@ -46,10 +54,12 @@ async def clear_auth_rate_limits(async_client: AsyncClient) -> AsyncIterator[Non
 
 
 @pytest_asyncio.fixture(scope="function")
-async def authed_client(async_client: AsyncClient) -> AsyncIterator[AsyncClient]:
-    """Return an HTTP client authenticated as a newly registered user."""
+async def authenticated_user(
+    async_client: AsyncClient,
+) -> AuthenticatedUser:
+    """Register and authenticate a user and expose its identity."""
 
-    email = f"cards-user-{uuid.uuid4().hex[:12]}@example.com"
+    email = f"test-user-{uuid.uuid4().hex[:12]}@example.com"
     password = "Password123!"
 
     register_response = await async_client.post(
@@ -57,8 +67,8 @@ async def authed_client(async_client: AsyncClient) -> AsyncIterator[AsyncClient]
         json={
             "email": email,
             "password": password,
-            "full_name": "Cards Test User",
-            "organization_name": "Cards Test Organization",
+            "full_name": "Test User",
+            "organization_name": f"Test Organization {uuid.uuid4().hex[:8]}",
         },
     )
     assert register_response.status_code in {200, 201}, register_response.text
@@ -72,14 +82,32 @@ async def authed_client(async_client: AsyncClient) -> AsyncIterator[AsyncClient]
     )
     assert login_response.status_code == 200, login_response.text
 
-    # Change this only if the login response has a different structure.
     access_token = login_response.json()["access_token"]
 
     async_client.headers.update(
         {"Authorization": f"Bearer {access_token}"},
     )
 
-    yield async_client
+    me_response = await async_client.get("/api/v1/auth/me")
+    assert me_response.status_code == 200, me_response.text
+
+    user_id = me_response.json()["id"]
+
+    return {
+        "client": async_client,
+        "user_id": user_id,
+        "email": email,
+        "access_token": access_token,
+    }
+
+
+@pytest_asyncio.fixture(scope="function")
+async def authed_client(
+    authenticated_user: AuthenticatedUser,
+) -> AsyncClient:
+    """Return the HTTP client authenticated by authenticated_user."""
+
+    return authenticated_user["client"]
 
 
 @pytest_asyncio.fixture(scope="function")

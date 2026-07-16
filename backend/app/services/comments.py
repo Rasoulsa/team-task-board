@@ -2,15 +2,19 @@ from __future__ import annotations
 
 import re
 import uuid
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.models.card import Card
 from app.models.comment import Comment, CommentMention
 from app.models.user import User
 from app.repositories.comments import CommentRepository
 from app.services.activity import ActivityService
+from app.services.notification_dispatch import PendingNotificationTask
+from app.worker.tasks import notify_card_mentioned
 from app.ws.events import EventType, RealtimeEvent
 
 MENTION_PATTERN = re.compile(r"@([a-zA-Z0-9_.-]+)")
@@ -27,6 +31,7 @@ class CommentService:
         self.repository = repository
         self.activity_service = activity_service
         self._pending_events: list[RealtimeEvent] = []
+        self._pending_notifications: list[PendingNotificationTask] = []
 
     def _queue_event(self, event: RealtimeEvent) -> None:
         self._pending_events.append(event)
@@ -40,6 +45,16 @@ class CommentService:
         self._pending_events = []
         return events
 
+    def _queue_notification(self, task: Any, **kwargs: Any) -> None:
+        self._pending_notifications.append(
+            PendingNotificationTask(task=task, kwargs=kwargs),
+        )
+
+    def collect_notification_tasks(self) -> list[PendingNotificationTask]:
+        tasks = self._pending_notifications
+        self._pending_notifications = []
+        return tasks
+
     async def list_comments(self, card_id: uuid.UUID) -> list[Comment]:
         return await self.repository.list_by_card(card_id)
 
@@ -49,6 +64,7 @@ class CommentService:
         card_id: uuid.UUID,
         author_id: uuid.UUID,
         body: str,
+        author_name: str,
     ) -> Comment:
         comment = Comment(
             card_id=card_id,
@@ -76,6 +92,21 @@ class CommentService:
         )
 
         reloaded = await self._reload(created.id)
+
+        card = await self.session.get(Card, card_id)
+        card_title = card.title if card is not None else ""
+
+        for user_id in mentioned_users:
+            if user_id == author_id:
+                continue
+            self._queue_notification(
+                notify_card_mentioned,
+                user_id=str(user_id),
+                author_name=author_name,
+                card_id=str(card_id),
+                card_title=card_title,
+                board_id=str(board_id),
+            )
 
         self._queue_event(
             RealtimeEvent(

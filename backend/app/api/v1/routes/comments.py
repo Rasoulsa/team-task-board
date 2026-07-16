@@ -19,6 +19,7 @@ from app.repositories.comments import CommentRepository
 from app.schemas.comment import CommentCreate, CommentRead
 from app.services.activity import ActivityService
 from app.services.comments import CommentService
+from app.services.notification_dispatch import enqueue_notifications
 from app.ws.pubsub import RedisEventBridge
 
 router = APIRouter(tags=["comments"])
@@ -80,11 +81,14 @@ async def create_comment(
         board_id=board_id,
         card_id=card_id,
         author_id=current_user.id,
+        author_name=current_user.full_name,
         body=payload.body,
     )
     await session.commit()
 
     for event in service.collect_events():
         await event_bridge.publish(event)
+
+    enqueue_notifications(service)
 
     return CommentRead.model_validate(comment)

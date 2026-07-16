@@ -427,10 +427,18 @@ make down
 [x] Cards, ordering, comments, mentions, and activity logging backend
 [x] Kanban board UI and drag-and-drop interaction
 [x] Real-time updates with WebSockets
-[ ] Notifications and Celery background tasks
+[x] Notifications and Celery background tasks
 [ ] Reporting, caching, and activity feed UI
 [ ] Production Docker, Nginx, and observability
 [ ] CI/CD, end-to-end testing, documentation, and final polish
+
+## Notification
+
+- **Features:** add a “Notifications” subsection (assign/mention/due-date, live unread bell, email via Celery).
+- **API:** add the four notification endpoints + `/ws/notifications`.
+- **Docs tree:** add `docs/architecture/notifications-celery.md`.
+- **Running locally:** add the worker/beat/mailhog terminals and `http://localhost:8025`.
+- Env: document `CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND`, `SMTP_*`, `DUE_REMINDER_HOURS`.
 
 ## Development notes
 - Never commit .env files, access tokens, database passwords, or production secrets.

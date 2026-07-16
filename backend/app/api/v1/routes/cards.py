@@ -34,6 +34,7 @@ from app.schemas.card import (
 )
 from app.services.activity import ActivityService
 from app.services.cards import CardService
+from app.services.notification_dispatch import enqueue_notifications
 from app.ws.pubsub import RedisEventBridge
 
 router = APIRouter(tags=["cards"])
@@ -274,7 +275,7 @@ async def add_assignee(
     current_user: User = Depends(get_current_user),
     event_bridge: RedisEventBridge = Depends(get_event_bridge),
 ) -> CardAssigneeRead:
-    _, org_id = await get_board_and_org_for_card(session, card_id)
+    board_id, org_id = await get_board_and_org_for_card(session, card_id)
     await require_org_role(
         session=session,
         organization_id=org_id,
@@ -283,9 +284,16 @@ async def add_assignee(
     )
 
     service = build_card_service(session)
-    assignee = await service.add_assignee(card_id, payload)
+    assignee = await service.add_assignee(
+        card_id,
+        payload,
+        board_id=board_id,
+        actor_id=current_user.id,
+        actor_name=current_user.full_name,
+    )
     await session.commit()
     await _publish(event_bridge, service)
+    enqueue_notifications(service)
     return CardAssigneeRead.model_validate(assignee)
 
 

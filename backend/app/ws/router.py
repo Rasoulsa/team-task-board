@@ -56,6 +56,16 @@ async def _authorize_board_access(
     return False
 
 
+async def _is_active_user(user_id: UUID) -> bool:
+    """Verify that a WebSocket token belongs to an active user."""
+    async for session in get_db_session():
+        users = UserRepository(session)
+        user = await users.get_by_id(user_id)
+        return user is not None and user.is_active
+
+    return False
+
+
 @router.websocket("/ws/boards/{board_id}")
 async def board_socket(
     websocket: WebSocket,
@@ -130,3 +140,48 @@ async def board_socket(
                     },
                 ),
             )
+
+
+@router.websocket("/ws/notifications")
+async def notification_socket(
+    websocket: WebSocket,
+    token: str | None = Query(default=None),
+) -> None:
+    """Connect an authenticated user to their private notification stream."""
+    try:
+        user_id = authenticate_ws_token(token)
+    except WebSocketAuthError:
+        await websocket.close(code=WS_UNAUTHORIZED)
+        return
+
+    if not await _is_active_user(user_id):
+        await websocket.close(code=WS_UNAUTHORIZED)
+        return
+
+    user_id_string = str(user_id)
+
+    await connection_manager.connect_user(
+        user_id_string,
+        websocket,
+    )
+
+    try:
+        while True:
+            with suppress(TimeoutError):
+                await asyncio.wait_for(
+                    websocket.receive_text(),
+                    timeout=HEARTBEAT_TIMEOUT_SECONDS,
+                )
+
+    except WebSocketDisconnect:
+        pass
+    except Exception:
+        logger.exception(
+            "notification_ws_error",
+            user_id=user_id_string,
+        )
+    finally:
+        await connection_manager.disconnect_user(
+            user_id_string,
+            websocket,
+        )
