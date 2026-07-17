@@ -47,6 +47,10 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+      SMTP_HOST: mailhog
+      SMTP_PORT: "1025"
       # CORS_ORIGINS: http://localhost:5173,http://localhost:5174
       # FRONTEND_URL: http://localhost:5173
       PYTHONUNBUFFERED: "1"
@@ -62,6 +66,66 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+    networks:
+      - team-task-board-network
+
+  celery-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: team-task-board-celery-worker
+    restart: unless-stopped
+    command: celery -A app.worker.celery_app.celery_app worker --loglevel=info
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+      SMTP_HOST: mailhog
+      SMTP_PORT: "1025"
+      PYTHONUNBUFFERED: "1"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - team-task-board-network
+
+  celery-beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: team-task-board-celery-beat
+    restart: unless-stopped
+    command: celery -A app.worker.celery_app.celery_app beat --loglevel=info --schedule /tmp/celerybeat-schedule
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+      SMTP_HOST: mailhog
+      SMTP_PORT: "1025"
+      PYTHONUNBUFFERED: "1"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - team-task-board-network
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: team-task-board-mailhog
+    restart: unless-stopped
+    ports:
+      - "8025:8025"   # Web UI  → http://localhost:8025
+      - "1025:1025"   # SMTP    → containers reach it at mailhog:1025
     networks:
       - team-task-board-network
 
@@ -89,4 +153,3 @@ volumes:
 networks:
   team-task-board-network:
     driver: bridge
-    
