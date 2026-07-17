@@ -2,9 +2,16 @@ import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 
 import { container } from '../../../core/di/container';
 import { useAuthStore } from '../../auth/store/authStore';
+import { NotificationBell } from '../../notifications/components/NotificationBell';
+import { useNotificationSocket } from '../../notifications/hooks/useNotificationSocket';
 
 export function AppLayout() {
   const navigate = useNavigate();
+
+  // Mount the user notification socket once, globally, for the whole
+  // authenticated app. AppLayout wraps every protected route via
+  // ProtectedRoute, so this connects exactly once (not per page/board).
+  useNotificationSocket();
 
   const user = useAuthStore((state) => state.user);
   const refreshToken = useAuthStore((state) => state.refreshToken);
@@ -45,12 +52,7 @@ export function AppLayout() {
           </div>
 
           <div className="flex items-center gap-4">
-            <button
-              type="button"
-              className="relative rounded-full border border-slate-700 px-3 py-2 text-sm hover:bg-slate-900"
-            >
-              🔔 <span className="ml-1 text-slate-400">0</span>
-            </button>
+            <NotificationBell />
 
             <div className="hidden text-right sm:block">
               <p className="text-sm font-medium">{user?.full_name}</p>
