@@ -8,12 +8,15 @@ import { ProjectService } from "../../features/projects/application/ProjectServi
 import { HttpProjectRepository } from "../../features/projects/data/HttpProjectRepository";
 import { HttpNotificationRepository } from "../../features/notifications/data/HttpNotificationRepository";
 import { NotificationService } from "../../features/notifications/application/NotificationService";
+import { HttpOrganizationRepository } from "../../features/organizations/data/HttpOrganizationRepository";
+import { OrganizationService } from "../../features/organizations/application/OrganizationService";
 
 const authRepository = new HttpAuthRepository();
 const projectRepository = new HttpProjectRepository();
 const boardRepository = new HttpBoardRepository();
 const cardRepository = new HttpCardRepository();
 const notificationRepository = new HttpNotificationRepository();
+const organizationRepository = new HttpOrganizationRepository();
 
 export const container = {
   authService: new AuthService(authRepository),
@@ -21,4 +24,5 @@ export const container = {
   boardService: new BoardService(boardRepository),
   cardService: new CardService(cardRepository),
   notificationService: new NotificationService(notificationRepository),
+  organizationService: new OrganizationService(organizationRepository),
 };

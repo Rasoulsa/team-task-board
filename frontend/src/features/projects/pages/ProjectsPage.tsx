@@ -1,33 +1,32 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState, type ChangeEvent, type SyntheticEvent } from 'react';
-import { Link } from 'react-router-dom';
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState, type ChangeEvent, type SyntheticEvent } from "react";
+import { Link } from "react-router-dom";
 
-import { container } from '../../../core/di/container';
+import { useActiveOrganization } from "../../../core/organization/useActiveOrganization";
+import { container } from "../../../core/di/container";
 
 export function ProjectsPage() {
   const queryClient = useQueryClient();
 
-  const [userSelectedOrganizationId, setUserSelectedOrganizationId] =
-    useState('');
-  const [name, setName] = useState('Demo Project');
+  const [name, setName] = useState("Demo Project");
   const [description, setDescription] = useState(
-    'Project created from the app shell.',
+    "Project created from the app shell.",
   );
 
   const organizationsQuery = useQuery({
-    queryKey: ['organizations'],
+    queryKey: ["organizations"],
     queryFn: () => container.projectService.listOrganizations(),
   });
 
   const organizations = organizationsQuery.data ?? [];
-
-  const selectedOrganizationId =
-    userSelectedOrganizationId || organizations[0]?.id || '';
+  const { activeOrganizationId, setActiveOrganization } =
+    useActiveOrganization(organizations);
 
   const projectsQuery = useQuery({
-    queryKey: ['projects', selectedOrganizationId],
-    queryFn: () => container.projectService.listProjects(selectedOrganizationId),
-    enabled: Boolean(selectedOrganizationId),
+    queryKey: ["projects", activeOrganizationId],
+    queryFn: () =>
+      container.projectService.listProjects(activeOrganizationId),
+    enabled: Boolean(activeOrganizationId),
   });
 
   const projects = projectsQuery.data ?? [];
@@ -35,16 +34,16 @@ export function ProjectsPage() {
   const createProjectMutation = useMutation({
     mutationFn: () =>
       container.projectService.createProject({
-        organization_id: selectedOrganizationId,
+        organization_id: activeOrganizationId,
         name,
         description: description.trim() ? description : null,
       }),
     onSuccess: async () => {
-      setName('');
-      setDescription('');
+      setName("");
+      setDescription("");
 
       await queryClient.invalidateQueries({
-        queryKey: ['projects', selectedOrganizationId],
+        queryKey: ["projects", activeOrganizationId],
       });
     },
   });
@@ -54,19 +53,19 @@ export function ProjectsPage() {
       container.projectService.deleteProject(projectId),
     onSuccess: async () => {
       await queryClient.invalidateQueries({
-        queryKey: ['projects', selectedOrganizationId],
+        queryKey: ["projects", activeOrganizationId],
       });
     },
   });
 
   function handleOrganizationChange(event: ChangeEvent<HTMLSelectElement>) {
-    setUserSelectedOrganizationId(event.target.value);
+    setActiveOrganization(event.target.value);
   }
 
   async function handleCreateProject(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!selectedOrganizationId) {
+    if (!activeOrganizationId) {
       return;
     }
 
@@ -74,7 +73,7 @@ export function ProjectsPage() {
   }
 
   async function handleDeleteProject(projectId: string) {
-    const confirmed = window.confirm('Delete this project?');
+    const confirmed = window.confirm("Delete this project?");
 
     if (!confirmed) {
       return;
@@ -85,11 +84,11 @@ export function ProjectsPage() {
 
   const errorMessage =
     organizationsQuery.isError || projectsQuery.isError
-      ? 'Could not load workspace data.'
+      ? "Could not load workspace data."
       : createProjectMutation.isError
-        ? 'Could not create project.'
+        ? "Could not create project."
         : deleteProjectMutation.isError
-          ? 'Could not delete project.'
+          ? "Could not delete project."
           : null;
 
   const isLoading =
@@ -110,7 +109,7 @@ export function ProjectsPage() {
 
         <select
           className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm"
-          value={selectedOrganizationId}
+          value={activeOrganizationId}
           onChange={handleOrganizationChange}
           disabled={organizations.length === 0 || organizationsQuery.isLoading}
         >
@@ -175,12 +174,12 @@ export function ProjectsPage() {
           type="submit"
           disabled={
             createProjectMutation.isPending ||
-            !selectedOrganizationId ||
+            !activeOrganizationId ||
             !name.trim()
           }
           className="mt-4 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {createProjectMutation.isPending ? 'Saving...' : 'Create project'}
+          {createProjectMutation.isPending ? "Saving..." : "Create project"}
         </button>
       </form>
 
@@ -209,7 +208,7 @@ export function ProjectsPage() {
               <h3 className="font-semibold">{project.name}</h3>
 
               <p className="mt-2 min-h-10 text-sm text-slate-400">
-                {project.description || 'No description'}
+                {project.description || "No description"}
               </p>
 
               <div className="mt-4 flex items-center gap-2">

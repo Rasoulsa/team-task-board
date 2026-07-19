@@ -9,7 +9,9 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
+import { useBoardSocket } from "../../realtime/useBoardSocket";
 import type { Card } from "../domain/types";
 import { useBoard } from "../hooks/useBoard";
 import { useCreateCard } from "../hooks/useCreateCard";
@@ -18,14 +20,18 @@ import { useMoveCard } from "../hooks/useMoveCard";
 import { CardPreview } from "./CardItem";
 import { CardModal } from "./CardModal";
 import { ColumnLane } from "./ColumnLane";
-import { useBoardSocket } from "../../realtime/useBoardSocket";
 
 interface KanbanBoardProps {
   boardId: string;
+  readOnlyExceptDescription?: boolean;
 }
 
-export function KanbanBoard({ boardId }: KanbanBoardProps) {
+export function KanbanBoard({
+  boardId,
+  readOnlyExceptDescription = false,
+}: KanbanBoardProps) {
   useBoardSocket(boardId);
+
   const {
     data: board,
     isLoading,
@@ -37,15 +43,25 @@ export function KanbanBoard({ boardId }: KanbanBoardProps) {
   const moveCard = useMoveCard();
   const deleteCard = useDeleteCard();
 
-  const [activeCard, setActiveCard] = useState<Card | null>(null);
+  const [searchParams, setSearchParams] =
+    useSearchParams();
 
-  /*
-   * Store only the card ID rather than the complete card object.
-   * The current card is resolved from the latest board query data.
-   */
-  const [openCardId, setOpenCardId] = useState<string | null>(
-    null,
-  );
+  const requestedCardId =
+    searchParams.get("card");
+
+  const [activeCard, setActiveCard] =
+    useState<Card | null>(null);
+
+  const [openCardId, setOpenCardId] =
+    useState<string | null>(requestedCardId);
+
+  const [previousRequestedCardId, setPreviousRequestedCardId] =
+    useState<string | null>(requestedCardId);
+
+  if (requestedCardId !== previousRequestedCardId) {
+    setPreviousRequestedCardId(requestedCardId);
+    setOpenCardId(requestedCardId);
+  }
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -56,7 +72,9 @@ export function KanbanBoard({ boardId }: KanbanBoardProps) {
   );
 
   const mutationError =
-    createCard.isError || moveCard.isError || deleteCard.isError
+    createCard.isError ||
+    moveCard.isError ||
+    deleteCard.isError
       ? "The card operation failed. Please try again."
       : null;
 
@@ -92,10 +110,6 @@ export function KanbanBoard({ boardId }: KanbanBoardProps) {
   }
 
   function handleDragEnd(event: DragEndEvent) {
-    /*
-     * Remove the overlay immediately. The overlay's drop animation is
-     * disabled below, so it will not briefly return to the old column.
-     */
     setActiveCard(null);
 
     if (moveCard.isPending) {
@@ -117,12 +131,6 @@ export function KanbanBoard({ boardId }: KanbanBoardProps) {
     const draggedCard = activeData.card as Card;
     const overData = over.data.current;
 
-    /*
-     * The drop target can be:
-     *
-     * 1. A column body, including an empty column.
-     * 2. Another card inside a column.
-     */
     const targetColumnId =
       overData?.type === "column"
         ? String(over.id)
@@ -146,11 +154,6 @@ export function KanbanBoard({ boardId }: KanbanBoardProps) {
       return;
     }
 
-    /*
-     * Remove the dragged card before calculating its new neighbors.
-     * The backend owns rank generation; the frontend sends only the
-     * previous and next card IDs.
-     */
     const targetSiblings = targetColumn.cards
       .filter((card) => card.id !== draggedCard.id)
       .sort((left, right) =>
@@ -177,10 +180,6 @@ export function KanbanBoard({ boardId }: KanbanBoardProps) {
     const nextCardId =
       targetSiblings[targetIndex]?.id ?? null;
 
-    /*
-     * Avoid calling the move endpoint when the card would keep the
-     * same neighbors in the same column.
-     */
     if (
       sourceColumn &&
       draggedCard.column_id === targetColumnId
@@ -247,6 +246,18 @@ export function KanbanBoard({ boardId }: KanbanBoardProps) {
     });
   }
 
+  function handleOpenCard(cardId: string) {
+    const next = new URLSearchParams(searchParams);
+    next.set("card", cardId);
+    setSearchParams(next, { replace: true });
+  }
+
+  function closeCard() {
+    const next = new URLSearchParams(searchParams);
+    next.delete("card");
+    setSearchParams(next, { replace: true });
+  }
+
   function handleDeleteCard(card: Card) {
     if (deleteCard.isPending) {
       return;
@@ -260,11 +271,8 @@ export function KanbanBoard({ boardId }: KanbanBoardProps) {
       return;
     }
 
-    /*
-     * Close the modal if the deleted card is currently open.
-     */
     if (openCardId === card.id) {
-      setOpenCardId(null);
+      closeCard();
     }
 
     deleteCard.reset();
@@ -284,7 +292,10 @@ export function KanbanBoard({ boardId }: KanbanBoardProps) {
   }
 
   if (isError) {
-    console.error("Unable to load the board:", boardError);
+    console.error(
+      "Unable to load the board:",
+      boardError,
+    );
 
     return (
       <p
@@ -307,10 +318,6 @@ export function KanbanBoard({ boardId }: KanbanBoardProps) {
     );
   }
 
-  /*
-   * Prevent board.columns.map(...) from crashing when the API response
-   * does not match the Board domain contract.
-   */
   if (!Array.isArray(board.columns)) {
     console.error(
       "Invalid board response: expected board.columns to be an array.",
@@ -322,18 +329,13 @@ export function KanbanBoard({ boardId }: KanbanBoardProps) {
         role="alert"
         className="rounded-lg border border-red-900 bg-red-950/40 p-3 text-sm text-red-300"
       >
-        The board response is invalid: its columns were not
-        included.
+        The board response is invalid: its columns were not included.
       </p>
     );
   }
 
   const columns = board.columns;
 
-  /*
-   * Always resolve the open card from the newest React Query board
-   * data instead of retaining an old card object after a mutation.
-   */
   const openCard =
     openCardId === null
       ? null
@@ -343,10 +345,6 @@ export function KanbanBoard({ boardId }: KanbanBoardProps) {
 
   return (
     <>
-      {/*
-       * Fixed notifications are outside the normal document flow.
-       * Therefore, showing or hiding them cannot push the columns down.
-       */}
       {mutationError ? (
         <div
           role="alert"
@@ -381,17 +379,12 @@ export function KanbanBoard({ boardId }: KanbanBoardProps) {
         onDragCancel={handleDragCancel}
         onDragEnd={handleDragEnd}
       >
-        <div
-          className="kanban-board"
-          aria-busy={isMutating}
-        >
+        <div className="kanban-board" aria-busy={isMutating}>
           {columns.map((column) => (
             <ColumnLane
               key={column.id}
               column={column}
-              onOpenCard={(card) =>
-                setOpenCardId(card.id)
-              }
+              onOpenCard={(card) => handleOpenCard(card.id)}
               onAddCard={handleAddCard}
               onDeleteCard={handleDeleteCard}
               isAddingCard={createCard.isPending}
@@ -400,9 +393,7 @@ export function KanbanBoard({ boardId }: KanbanBoardProps) {
         </div>
 
         <DragOverlay dropAnimation={null}>
-          {activeCard ? (
-            <CardPreview card={activeCard} />
-          ) : null}
+          {activeCard ? <CardPreview card={activeCard} /> : null}
         </DragOverlay>
       </DndContext>
 
@@ -411,8 +402,11 @@ export function KanbanBoard({ boardId }: KanbanBoardProps) {
           key={openCard.id}
           boardId={boardId}
           card={openCard}
-          onClose={() => setOpenCardId(null)}
+          onClose={closeCard}
           onDelete={handleDeleteCard}
+          readOnlyExceptDescription={
+            readOnlyExceptDescription
+          }
         />
       ) : null}
     </>

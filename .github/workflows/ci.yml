@@ -45,7 +45,7 @@ jobs:
 
     # These values are available to all backend steps, including pytest.
     env:
-      ENVIRONMENT: testing
+      ENV: testing
 
       # GitHub Actions Redis service:
       # Local Docker uses localhost:6380, but CI must use localhost:6379.

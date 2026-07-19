@@ -1,7 +1,13 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum, ForeignKey, UniqueConstraint, func
+from sqlalchemy import (
+    DateTime,
+    Enum,
+    ForeignKey,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -12,7 +18,13 @@ from app.models.enums import OrganizationRole
 class OrgMember(Base):
     __tablename__ = "org_members"
 
-    __table_args__ = (UniqueConstraint("organization_id", "user_id", name="uq_org_member_user"),)
+    __table_args__ = (
+        UniqueConstraint(
+            "organization_id",
+            "user_id",
+            name="uq_org_member_user",
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
@@ -39,5 +51,11 @@ class OrgMember(Base):
         server_default=func.now(),
     )
 
-    organization = relationship("Organization", back_populates="members")
-    user = relationship("User", back_populates="memberships")
+    organization = relationship(
+        "Organization",
+        back_populates="members",
+    )
+    user = relationship(
+        "User",
+        back_populates="memberships",
+    )

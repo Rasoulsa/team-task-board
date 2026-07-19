@@ -14,6 +14,7 @@ from app.core.config import settings
 from app.models.card import Card
 from app.models.notification import Notification, NotificationType
 from app.models.user import User
+from app.worker.celery_app import celery_app  # noqa: F401  (ensures set_default() runs)
 from app.worker.db import get_sync_session
 from app.worker.email import send_email
 from app.ws.events import EventType
@@ -378,6 +379,60 @@ def notify_due_date(
                 to=recipient_email,
                 subject=title,
                 body=body,
+            )
+        except Exception:
+            logger.exception(
+                "notification.email_failed",
+                user_id=user_id,
+                notification_id=str(notification.id),
+            )
+
+
+@shared_task(
+    autoretry_for=(Exception,),
+    retry_backoff=True,
+    retry_backoff_max=60,
+    retry_jitter=True,
+    max_retries=3,
+)
+def notify_organization_invitation(
+    *,
+    user_id: str,
+    inviter_name: str,
+    organization_name: str,
+    token: str,
+) -> None:
+    with get_sync_session() as session:
+        user = session.get(User, uuid.UUID(user_id))
+
+        if user is None:
+            logger.warning("notify.user_missing", user_id=user_id)
+            return
+
+        title = "You were invited to an organization"
+        body = (
+            f'{inviter_name} invited you to join "{organization_name}". '
+            f"Open your invitations to accept."
+        )
+
+        notification, unread_count = _create_notification(
+            session,
+            user_id=user.id,
+            notif_type=NotificationType.ORGANIZATION_INVITATION,
+            title=title,
+            body=body,
+        )
+
+        recipient_email = user.email
+        session.commit()
+
+        _publish_notification(notification, unread_count=unread_count)
+
+        try:
+            send_email(
+                to=recipient_email,
+                subject=title,
+                body=f"{body}\n\nInvitation token: {token}",
             )
         except Exception:
             logger.exception(

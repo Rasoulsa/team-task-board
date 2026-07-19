@@ -7,12 +7,16 @@ from app.api.deps import get_current_user, get_db
 from app.models.user import User
 from app.schemas.board import BoardCreate, BoardRead, BoardUpdate
 from app.schemas.kanban import KanbanBoard as KanbanBoardSchema
+from app.schemas.organization import OrganizationMemberRead
 from app.services.boards import BoardService
 
 router = APIRouter(tags=["boards"])
 
 
-@router.get("/projects/{project_id}/boards", response_model=list[BoardRead])
+@router.get(
+    "/projects/{project_id}/boards",
+    response_model=list[BoardRead],
+)
 async def list_boards(
     project_id: uuid.UUID,
     session: AsyncSession = Depends(get_db),
@@ -23,6 +27,7 @@ async def list_boards(
         project_id=project_id,
         current_user=current_user,
     )
+
     return [BoardRead.model_validate(board) for board in boards]
 
 
@@ -44,10 +49,14 @@ async def create_board(
         description=payload.description,
         current_user=current_user,
     )
+
     return BoardRead.model_validate(board)
 
 
-@router.get("/boards/{board_id}/kanban", response_model=KanbanBoardSchema)
+@router.get(
+    "/boards/{board_id}/kanban",
+    response_model=KanbanBoardSchema,
+)
 async def get_kanban_board(
     board_id: uuid.UUID,
     session: AsyncSession = Depends(get_db),
@@ -58,10 +67,14 @@ async def get_kanban_board(
         board_id=board_id,
         current_user=current_user,
     )
+
     return KanbanBoardSchema.model_validate(board)
 
 
-@router.get("/boards/{board_id}", response_model=BoardRead)
+@router.get(
+    "/boards/{board_id}",
+    response_model=BoardRead,
+)
 async def get_board(
     board_id: uuid.UUID,
     session: AsyncSession = Depends(get_db),
@@ -72,10 +85,14 @@ async def get_board(
         board_id=board_id,
         current_user=current_user,
     )
+
     return BoardRead.model_validate(board)
 
 
-@router.patch("/boards/{board_id}", response_model=BoardRead)
+@router.patch(
+    "/boards/{board_id}",
+    response_model=BoardRead,
+)
 async def update_board(
     board_id: uuid.UUID,
     payload: BoardUpdate,
@@ -89,10 +106,14 @@ async def update_board(
         description=payload.description,
         current_user=current_user,
     )
+
     return BoardRead.model_validate(board)
 
 
-@router.delete("/boards/{board_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/boards/{board_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
 async def delete_board(
     board_id: uuid.UUID,
     session: AsyncSession = Depends(get_db),
@@ -103,3 +124,33 @@ async def delete_board(
         board_id=board_id,
         current_user=current_user,
     )
+
+
+@router.get(
+    "/boards/{board_id}/members",
+    response_model=list[OrganizationMemberRead],
+)
+async def list_board_members(
+    board_id: uuid.UUID,
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[OrganizationMemberRead]:
+    service = BoardService(session)
+
+    members = await service.list_members(
+        board_id=board_id,
+        current_user=current_user,
+    )
+
+    return [
+        OrganizationMemberRead(
+            id=member.id,
+            user_id=member.user_id,
+            organization_id=member.organization_id,
+            full_name=member.user.full_name,
+            email=member.user.email,
+            role=member.role,
+            created_at=member.created_at,
+        )
+        for member in members
+    ]

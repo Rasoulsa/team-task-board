@@ -8,24 +8,45 @@ from httpx import AsyncClient
 from pytest_mock import MockerFixture
 
 
-async def _register_second_user(client: AsyncClient) -> dict[str, str]:
-    """Register a second user (separate org) and return id + email.
+async def _invite_and_accept(
+    owner_client: AsyncClient,
+    organization_id: str,
+) -> dict[str, str]:
+    """Register a second user, invite them into the org, and accept.
 
-    add_assignee does not validate org membership of the target, only
-    that the user row exists (FK card_assignees.user_id -> users.id).
+    The card assignment endpoint now requires the target to be a
+    member of the card's organization, so the second user must join
+    via the invitation flow before being assignable.
     """
     email = f"assignee-{uuid.uuid4().hex[:10]}@example.com"
-    register = await client.post(
+
+    register = await owner_client.post(
         "/api/v1/auth/register",
         json={
             "email": email,
             "password": "Password123!",
             "full_name": "Assignee User",
-            "organization_name": f"Assignee Org {uuid.uuid4().hex[:8]}",
+            "organization_name": (f"Assignee Org {uuid.uuid4().hex[:8]}"),
         },
     )
     assert register.status_code in {200, 201}, register.text
-    return {"email": email, "user_id": register.json()["user"]["id"]}
+    user_id = register.json()["user"]["id"]
+    token = register.json()["access_token"]
+
+    invitation = await owner_client.post(
+        f"/api/v1/organizations/{organization_id}/invitations",
+        json={"email": email, "role": "member"},
+    )
+    assert invitation.status_code == 201, invitation.text
+    invite_token = invitation.json()["token"]
+
+    accept = await owner_client.post(
+        f"/api/v1/invitations/{invite_token}/accept",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert accept.status_code == 200, accept.text
+
+    return {"email": email, "user_id": user_id}
 
 
 @pytest.mark.asyncio
@@ -41,6 +62,12 @@ async def test_assigning_card_to_other_user_enqueues_notification(
     column_id = seed_board_with_column["column_id"]
     board_id = seed_board_with_column["board_id"]
 
+    organizations_response = await authed_client.get(
+        "/api/v1/organizations",
+    )
+    assert organizations_response.status_code == 200, organizations_response.text
+    organization_id = organizations_response.json()[0]["id"]
+
     card_response = await authed_client.post(
         f"/api/v1/columns/{column_id}/cards",
         json={"title": "Ship it", "description": None},
@@ -49,7 +76,10 @@ async def test_assigning_card_to_other_user_enqueues_notification(
     card_id = card_response.json()["id"]
     card_title = card_response.json()["title"]
 
-    second = await _register_second_user(authed_client)
+    second = await _invite_and_accept(
+        authed_client,
+        organization_id,
+    )
 
     response = await authed_client.post(
         f"/api/v1/cards/{card_id}/assignees",

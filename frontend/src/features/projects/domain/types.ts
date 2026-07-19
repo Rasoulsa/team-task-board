@@ -1,6 +1,9 @@
+import type { OrganizationRole } from "../../../core/domain/roles";
+
 export type Organization = {
   id: string;
   name: string;
+  role: OrganizationRole;
   created_at: string;
   updated_at: string;
 };

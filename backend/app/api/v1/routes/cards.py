@@ -2,19 +2,20 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.board_access import (
     get_board_and_org_for_card,
     get_board_and_org_for_column,
 )
+from app.api.card_access import require_card_read_access
 from app.api.deps import (
     get_current_user,
     get_db_session,
     get_event_bridge,
 )
-from app.api.rbac import require_org_role
+from app.api.rbac import get_membership, require_org_role
 from app.models.enums import OrganizationRole
 from app.models.user import User
 from app.repositories.activity import ActivityRepository
@@ -75,6 +76,16 @@ async def list_cards(
     return [CardRead.model_validate(card) for card in cards]
 
 
+@router.get("/me/assigned-cards", response_model=list[CardRead])
+async def list_my_assigned_cards(
+    session: AsyncSession = Depends(get_db_session),
+    current_user: User = Depends(get_current_user),
+) -> list[CardRead]:
+    service = build_card_service(session)
+    cards = await service.list_assigned_cards(current_user.id)
+    return [CardRead.model_validate(card) for card in cards]
+
+
 @router.post(
     "/columns/{column_id}/cards",
     response_model=CardRead,
@@ -113,12 +124,11 @@ async def get_card(
     session: AsyncSession = Depends(get_db_session),
     current_user: User = Depends(get_current_user),
 ) -> CardRead:
-    _, org_id = await get_board_and_org_for_card(session, card_id)
-    await require_org_role(
-        session=session,
-        organization_id=org_id,
+    # Allows VIEWER+ (any card in org) and GUEST (only assigned cards).
+    await require_card_read_access(
+        session,
+        card_id=card_id,
         current_user=current_user,
-        minimum_role=OrganizationRole.VIEWER,
     )
 
     service = build_card_service(session)
@@ -135,14 +145,59 @@ async def update_card(
     event_bridge: RedisEventBridge = Depends(get_event_bridge),
 ) -> CardRead:
     board_id, org_id = await get_board_and_org_for_card(session, card_id)
-    await require_org_role(
+
+    membership = await get_membership(
         session=session,
         organization_id=org_id,
-        current_user=current_user,
-        minimum_role=OrganizationRole.MEMBER,
+        user_id=current_user.id,
     )
 
+    if membership is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have access to this card",
+        )
+
     service = build_card_service(session)
+
+    # Guests: description-only, and only on cards they are assigned to.
+    if membership.role == OrganizationRole.GUEST:
+        from app.api.card_access import _is_assignee  # local import to avoid cycles
+
+        if not await _is_assignee(session, card_id=card_id, user_id=current_user.id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You may only edit cards assigned to you",
+            )
+
+        # Reject any field other than description.
+        provided = payload.model_dump(exclude_unset=True)
+        disallowed = set(provided.keys()) - {"description"}
+        if disallowed:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Guests may only edit the description",
+            )
+
+        card = await service.update_card_description(
+            board_id=board_id,
+            card_id=card_id,
+            actor_id=current_user.id,
+            description=payload.description,
+        )
+        await session.commit()
+        await _publish(event_bridge, service)
+        return CardRead.model_validate(card)
+
+    # Members and above: full update.
+    from app.api.rbac import role_allows  # local import; already imported get_membership
+
+    if not role_allows(membership.role, OrganizationRole.MEMBER):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Insufficient permissions",
+        )
+
     card = await service.update_card(
         board_id=board_id,
         card_id=card_id,
@@ -276,12 +331,25 @@ async def add_assignee(
     event_bridge: RedisEventBridge = Depends(get_event_bridge),
 ) -> CardAssigneeRead:
     board_id, org_id = await get_board_and_org_for_card(session, card_id)
+
     await require_org_role(
         session=session,
         organization_id=org_id,
         current_user=current_user,
         minimum_role=OrganizationRole.MEMBER,
     )
+
+    target_membership = await get_membership(
+        session=session,
+        organization_id=org_id,
+        user_id=payload.user_id,
+    )
+
+    if target_membership is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=("The selected user is not a member of this card's organization"),
+        )
 
     service = build_card_service(session)
     assignee = await service.add_assignee(
@@ -291,10 +359,45 @@ async def add_assignee(
         actor_id=current_user.id,
         actor_name=current_user.full_name,
     )
+
     await session.commit()
     await _publish(event_bridge, service)
     enqueue_notifications(service)
+
     return CardAssigneeRead.model_validate(assignee)
+
+
+@router.delete(
+    "/cards/{card_id}/assignees/{user_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def remove_assignee(
+    card_id: uuid.UUID,
+    user_id: uuid.UUID,
+    session: AsyncSession = Depends(get_db_session),
+    current_user: User = Depends(get_current_user),
+    event_bridge: RedisEventBridge = Depends(get_event_bridge),
+) -> None:
+    board_id, org_id = await get_board_and_org_for_card(session, card_id)
+
+    await require_org_role(
+        session=session,
+        organization_id=org_id,
+        current_user=current_user,
+        minimum_role=OrganizationRole.MEMBER,
+    )
+
+    service = build_card_service(session)
+
+    await service.remove_assignee(
+        card_id=card_id,
+        user_id=user_id,
+        board_id=board_id,
+        actor_id=current_user.id,
+    )
+
+    await session.commit()
+    await _publish(event_bridge, service)
 
 
 @router.post(

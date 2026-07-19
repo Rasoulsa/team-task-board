@@ -26,5 +26,15 @@ class InvitationRead(BaseModel):
     created_at: datetime
 
 
+class InvitationAcceptResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    organization_id: uuid.UUID
+    user_id: uuid.UUID
+    role: OrganizationRole
+    created_at: datetime
+
+
 class InvitationRevokeResponse(BaseModel):
     message: str

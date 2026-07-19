@@ -7,7 +7,8 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from pytest_mock import MockerFixture
 
-from app.schemas.card import CardMove
+from app.models import CardAssignee
+from app.schemas.card import CardAssigneeCreate, CardMove
 from app.services.cards import CardService
 from app.ws.events import EventType
 
@@ -136,3 +137,49 @@ async def test_collect_events_clears_card_service_queue(
 
     assert len(first_collection) == 1
     assert second_collection == []
+
+
+@pytest.mark.asyncio
+async def test_add_assignee_returns_existing_assignment(
+    mocker: MockerFixture,
+) -> None:
+    card_id = uuid.uuid4()
+    user_id = uuid.uuid4()
+    board_id = uuid.uuid4()
+    actor_id = uuid.uuid4()
+
+    repository = MagicMock()
+    repository.session.flush = AsyncMock()
+
+    existing = CardAssignee(card_id=card_id, user_id=user_id)
+    repository.get_assignee = AsyncMock(return_value=existing)
+    repository.add_assignee = AsyncMock()
+
+    activity_service = MagicMock()
+    activity_service.record = AsyncMock()
+
+    service = CardService(
+        repository=repository,
+        activity_service=activity_service,
+    )
+
+    card = SimpleNamespace(id=card_id)
+    mocker.patch.object(
+        service,
+        "get_card",
+        new=AsyncMock(return_value=card),
+    )
+
+    payload = CardAssigneeCreate(user_id=user_id)
+
+    first = await service.add_assignee(
+        card_id,
+        payload,
+        board_id=board_id,
+        actor_id=actor_id,
+        actor_name="Demo User",
+    )
+
+    assert first is existing
+    repository.add_assignee.assert_not_awaited()
+    activity_service.record.assert_not_awaited()
