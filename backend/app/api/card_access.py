@@ -56,13 +56,12 @@ async def require_card_read_access(
     if role_allows(membership.role, OrganizationRole.VIEWER):
         return board_id, org_id, membership.role
 
-    if membership.role == OrganizationRole.GUEST:
-        if await _is_assignee(
-            session,
-            card_id=card_id,
-            user_id=current_user.id,
-        ):
-            return board_id, org_id, membership.role
+    if membership.role == OrganizationRole.GUEST and await _is_assignee(
+        session,
+        card_id=card_id,
+        user_id=current_user.id,
+    ):
+        return board_id, org_id, membership.role
 
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,

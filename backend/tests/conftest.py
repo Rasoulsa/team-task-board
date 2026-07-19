@@ -1,4 +1,5 @@
 import os
+
 os.environ.setdefault(
     "DATABASE_URL",
     "postgresql+asyncpg://ttb:ttb_password@localhost:55432/ttb_db",

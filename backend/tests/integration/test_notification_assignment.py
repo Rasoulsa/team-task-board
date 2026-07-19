@@ -26,9 +26,7 @@ async def _invite_and_accept(
             "email": email,
             "password": "Password123!",
             "full_name": "Assignee User",
-            "organization_name": (
-                f"Assignee Org {uuid.uuid4().hex[:8]}"
-            ),
+            "organization_name": (f"Assignee Org {uuid.uuid4().hex[:8]}"),
         },
     )
     assert register.status_code in {200, 201}, register.text
@@ -67,9 +65,7 @@ async def test_assigning_card_to_other_user_enqueues_notification(
     organizations_response = await authed_client.get(
         "/api/v1/organizations",
     )
-    assert organizations_response.status_code == 200, (
-        organizations_response.text
-    )
+    assert organizations_response.status_code == 200, organizations_response.text
     organization_id = organizations_response.json()[0]["id"]
 
     card_response = await authed_client.post(

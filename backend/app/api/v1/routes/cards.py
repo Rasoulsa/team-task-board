@@ -9,13 +9,13 @@ from app.api.board_access import (
     get_board_and_org_for_card,
     get_board_and_org_for_column,
 )
+from app.api.card_access import require_card_read_access
 from app.api.deps import (
     get_current_user,
     get_db_session,
     get_event_bridge,
 )
 from app.api.rbac import get_membership, require_org_role
-from app.api.card_access import require_card_read_access
 from app.models.enums import OrganizationRole
 from app.models.user import User
 from app.repositories.activity import ActivityRepository
@@ -164,9 +164,7 @@ async def update_card(
     if membership.role == OrganizationRole.GUEST:
         from app.api.card_access import _is_assignee  # local import to avoid cycles
 
-        if not await _is_assignee(
-            session, card_id=card_id, user_id=current_user.id
-        ):
+        if not await _is_assignee(session, card_id=card_id, user_id=current_user.id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You may only edit cards assigned to you",

@@ -10,8 +10,8 @@ from app.api.rbac import get_membership, require_org_role
 from app.models.enums import InvitationStatus, OrganizationRole
 from app.models.invitation import Invitation
 from app.models.org_member import OrgMember
-from app.models.user import User
 from app.models.organization import Organization
+from app.models.user import User
 from app.repositories.organizations import OrganizationRepository
 from app.worker.tasks import notify_organization_invitation
 
@@ -128,11 +128,7 @@ class InvitationService:
                 Organization,
                 organization_id,
             )
-            organization_name = (
-                organization.name
-                if organization is not None
-                else "an organization"
-            )
+            organization_name = organization.name if organization is not None else "an organization"
 
             notify_organization_invitation.delay(
                 user_id=str(invited_user.id),

@@ -421,7 +421,7 @@ class CardService:
 
         await self.repository.session.flush()
         return item
-    
+
     async def list_assigned_cards(
         self,
         user_id: uuid.UUID,
