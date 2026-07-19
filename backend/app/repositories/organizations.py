@@ -36,7 +36,7 @@ class OrganizationRepository:
         )
 
         result = await self.session.execute(statement)
-        return list(result.all())
+        return list(result.tuples().all())
 
     async def get_member(
         self,
