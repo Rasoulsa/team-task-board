@@ -4,10 +4,12 @@ from celery import Celery
 
 from app.core.config import settings
 
+_is_testing = settings.ENV == "testing"
+
 celery_app = Celery(
     "team_task_board",
-    broker=settings.CELERY_BROKER_URL,
-    backend=settings.CELERY_RESULT_BACKEND,
+    broker=settings.CELERY_BROKER_URL if not _is_testing else "memory://",
+    backend=settings.CELERY_RESULT_BACKEND if not _is_testing else None,
     include=["app.worker.tasks"],
 )
 
@@ -23,6 +25,15 @@ celery_app.conf.update(
     timezone="UTC",
     enable_utc=True,
 )
+
+if _is_testing:
+    # Tests must never depend on a live Redis broker/result backend.
+    # Eager mode executes tasks synchronously in-process — no network I/O.
+    celery_app.conf.update(
+        task_always_eager=True,
+        task_eager_propagates=True,
+        broker_connection_retry_on_startup=False,
+    )
 
 # Celery Beat schedule: check for due cards periodically.
 celery_app.conf.beat_schedule = {
