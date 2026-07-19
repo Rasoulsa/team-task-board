@@ -14,6 +14,7 @@ from app.core.config import settings
 from app.models.card import Card
 from app.models.notification import Notification, NotificationType
 from app.models.user import User
+from app.worker.celery_app import celery_app  # noqa: F401  (ensures set_default() runs)
 from app.worker.db import get_sync_session
 from app.worker.email import send_email
 from app.ws.events import EventType

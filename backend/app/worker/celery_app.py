@@ -13,6 +13,10 @@ celery_app = Celery(
     include=["app.worker.tasks"],
 )
 
+# Make this the current/default Celery app so `@shared_task`-decorated
+# tasks bind to it and inherit its configuration (e.g. eager mode in tests).
+celery_app.set_default()
+
 celery_app.conf.update(
     task_acks_late=True,
     task_reject_on_worker_lost=True,
@@ -27,18 +31,15 @@ celery_app.conf.update(
 )
 
 if _is_testing:
-    # Tests must never depend on a live Redis broker/result backend.
-    # Eager mode executes tasks synchronously in-process — no network I/O.
     celery_app.conf.update(
         task_always_eager=True,
         task_eager_propagates=True,
         broker_connection_retry_on_startup=False,
     )
 
-# Celery Beat schedule: check for due cards periodically.
 celery_app.conf.beat_schedule = {
     "scan-due-cards-every-15-min": {
         "task": "app.worker.tasks.scan_due_cards",
-        "schedule": 60 * 15,  # every 15 minutes
+        "schedule": 60 * 15,
     },
 }
