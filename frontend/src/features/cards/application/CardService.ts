@@ -49,4 +49,18 @@ export class CardService {
   deleteCard(cardId: string) {
     return this.cardRepository.deleteCard(cardId);
   }
+
+  addAssignee(cardId: string, userId: string) {
+    return this.cardRepository.addAssignee(
+      cardId,
+      userId,
+    );
+  }
+
+  removeAssignee(cardId: string, userId: string) {
+    return this.cardRepository.removeAssignee(
+      cardId,
+      userId,
+    );
+  }
 }

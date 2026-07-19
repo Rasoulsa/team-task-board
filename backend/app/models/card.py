@@ -11,6 +11,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    UniqueConstraint,
     func,
 )
 from sqlalchemy.dialects.postgresql import UUID
@@ -130,6 +131,14 @@ class CardLabel(Base):
 
 class CardAssignee(Base):
     __tablename__ = "card_assignees"
+
+    __table_args__ = (
+        UniqueConstraint(
+            "card_id",
+            "user_id",
+            name="uq_card_assignees_card_id_user_id",
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),

@@ -28,6 +28,15 @@ class Organization(Base):
         onupdate=func.now(),
     )
 
-    members = relationship("OrgMember", back_populates="organization")
-    invitations = relationship("Invitation", back_populates="organization")
-    projects = relationship("Project", back_populates="organization")
+    members = relationship(
+        "OrgMember",
+        back_populates="organization",
+    )
+    invitations = relationship(
+        "Invitation",
+        back_populates="organization",
+    )
+    projects = relationship(
+        "Project",
+        back_populates="organization",
+    )

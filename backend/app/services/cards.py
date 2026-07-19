@@ -311,11 +311,38 @@ class CardService:
     ) -> CardAssignee:
         card = await self.get_card(card_id)
 
+        existing = await self.repository.get_assignee(
+            card_id=card_id,
+            user_id=payload.user_id,
+        )
+
+        if existing is not None:
+            return existing
+
         assignee = CardAssignee(
             card_id=card_id,
             user_id=payload.user_id,
         )
         created = await self.repository.add_assignee(assignee)
+
+        await self.activity_service.record(
+            board_id=board_id,
+            actor_id=actor_id,
+            action="card.assignee_added",
+            entity_type="card",
+            entity_id=card.id,
+            meta={"user_id": str(payload.user_id)},
+        )
+
+        self._queue_event(
+            RealtimeEvent(
+                type=EventType.CARD_UPDATED,
+                board_id=str(board_id),
+                actor_id=str(actor_id),
+                payload={"id": str(card.id)},
+            ),
+        )
+
         if payload.user_id != actor_id:
             self._queue_notification(
                 notify_card_assigned,
@@ -327,6 +354,42 @@ class CardService:
             )
 
         return created
+
+    async def remove_assignee(
+        self,
+        card_id: uuid.UUID,
+        user_id: uuid.UUID,
+        *,
+        board_id: uuid.UUID,
+        actor_id: uuid.UUID,
+    ) -> None:
+        card = await self.get_card(card_id)
+
+        removed = await self.repository.remove_assignee(
+            card_id=card_id,
+            user_id=user_id,
+        )
+
+        if not removed:
+            return
+
+        await self.activity_service.record(
+            board_id=board_id,
+            actor_id=actor_id,
+            action="card.assignee_removed",
+            entity_type="card",
+            entity_id=card.id,
+            meta={"user_id": str(user_id)},
+        )
+
+        self._queue_event(
+            RealtimeEvent(
+                type=EventType.CARD_UPDATED,
+                board_id=str(board_id),
+                actor_id=str(actor_id),
+                payload={"id": str(card.id)},
+            ),
+        )
 
     async def add_checklist_item(
         self,
@@ -358,3 +421,44 @@ class CardService:
 
         await self.repository.session.flush()
         return item
+    
+    async def list_assigned_cards(
+        self,
+        user_id: uuid.UUID,
+    ) -> list[Card]:
+        return await self.repository.list_assigned_to_user(user_id)
+
+    async def update_card_description(
+        self,
+        board_id: uuid.UUID,
+        card_id: uuid.UUID,
+        actor_id: uuid.UUID,
+        description: str | None,
+    ) -> Card:
+        """Guest-safe update: only the description field may change."""
+        card = await self.get_card(card_id)
+        card.description = description
+
+        await self.repository.session.flush()
+
+        await self.activity_service.record(
+            board_id=board_id,
+            actor_id=actor_id,
+            action="card.description_updated",
+            entity_type="card",
+            entity_id=card.id,
+            meta={},
+        )
+
+        updated = await self.get_card(card.id)
+
+        self._queue_event(
+            RealtimeEvent(
+                type=EventType.CARD_UPDATED,
+                board_id=str(board_id),
+                actor_id=str(actor_id),
+                payload={"id": str(updated.id)},
+            ),
+        )
+
+        return updated

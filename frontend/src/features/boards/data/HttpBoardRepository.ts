@@ -1,14 +1,25 @@
-import { apiClient } from '../../../core/http/client';
-import type { BoardRepository } from '../domain/BoardRepository';
+import { apiClient } from "../../../core/http/client";
+import type { BoardRepository } from "../domain/BoardRepository";
 import type {
   Board,
   BoardColumn,
+  BoardMember,
   CreateBoardInput,
   CreateColumnInput,
   UpdateBoardInput,
-} from '../domain/types';
+} from "../domain/types";
 
-export class HttpBoardRepository implements BoardRepository {
+export class HttpBoardRepository
+  implements BoardRepository
+{
+  async getBoard(boardId: string): Promise<Board> {
+    const response = await apiClient.get<Board>(
+      `/boards/${boardId}`,
+    );
+
+    return response.data;
+  }
+
   async listBoards(projectId: string): Promise<Board[]> {
     const response = await apiClient.get<Board[]>(
       `/projects/${projectId}/boards`,
@@ -33,7 +44,11 @@ export class HttpBoardRepository implements BoardRepository {
     boardId: string,
     input: UpdateBoardInput,
   ): Promise<Board> {
-    const response = await apiClient.patch<Board>(`/boards/${boardId}`, input);
+    const response = await apiClient.patch<Board>(
+      `/boards/${boardId}`,
+      input,
+    );
+
     return response.data;
   }
 
@@ -41,7 +56,19 @@ export class HttpBoardRepository implements BoardRepository {
     await apiClient.delete(`/boards/${boardId}`);
   }
 
-  async listColumns(boardId: string): Promise<BoardColumn[]> {
+  async listMembers(
+    boardId: string,
+  ): Promise<BoardMember[]> {
+    const response = await apiClient.get<BoardMember[]>(
+      `/boards/${boardId}/members`,
+    );
+
+    return response.data;
+  }
+
+  async listColumns(
+    boardId: string,
+  ): Promise<BoardColumn[]> {
     const response = await apiClient.get<BoardColumn[]>(
       `/boards/${boardId}/columns`,
     );

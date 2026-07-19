@@ -6,9 +6,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.rbac import require_org_role
 from app.models.board import Board
 from app.models.enums import OrganizationRole
+from app.models.org_member import OrgMember
 from app.models.user import User
 from app.repositories.boards import BoardRepository
 from app.repositories.columns import ColumnRepository
+from app.repositories.organizations import OrganizationRepository
 from app.repositories.projects import ProjectRepository
 
 DEFAULT_COLUMN_NAMES = ["To Do", "In Progress", "Done"]
@@ -20,6 +22,7 @@ class BoardService:
         self.boards = BoardRepository(session)
         self.projects = ProjectRepository(session)
         self.columns = ColumnRepository(session)
+        self.organizations = OrganizationRepository(session)
 
     async def list_boards(
         self,
@@ -28,7 +31,8 @@ class BoardService:
         current_user: User,
     ) -> list[Board]:
         project = await self.projects.get_by_id(project_id)
-        if not project:
+
+        if project is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Project not found",
@@ -50,14 +54,16 @@ class BoardService:
         current_user: User,
     ) -> Board:
         board = await self.boards.get_by_id(board_id)
-        if not board:
+
+        if board is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Board not found",
             )
 
         project = await self.projects.get_by_id(board.project_id)
-        if not project:
+
+        if project is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Project not found",
@@ -81,7 +87,8 @@ class BoardService:
         current_user: User,
     ) -> Board:
         project = await self.projects.get_by_id(project_id)
-        if not project:
+
+        if project is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Project not found",
@@ -126,7 +133,8 @@ class BoardService:
         )
 
         project = await self.projects.get_by_id(board.project_id)
-        if not project:
+
+        if project is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Project not found",
@@ -141,6 +149,7 @@ class BoardService:
 
         if name is not None:
             board.name = name
+
         if description is not None:
             board.description = description
 
@@ -161,7 +170,8 @@ class BoardService:
         )
 
         project = await self.projects.get_by_id(board.project_id)
-        if not project:
+
+        if project is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Project not found",
@@ -189,6 +199,7 @@ class BoardService:
         )
 
         board = await self.boards.get_kanban(board_id)
+
         if board is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -196,3 +207,26 @@ class BoardService:
             )
 
         return board
+
+    async def list_members(
+        self,
+        *,
+        board_id: uuid.UUID,
+        current_user: User,
+    ) -> list[OrgMember]:
+        board = await self.get_board(
+            board_id=board_id,
+            current_user=current_user,
+        )
+
+        project = await self.projects.get_by_id(board.project_id)
+
+        if project is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Project not found",
+            )
+
+        return await self.organizations.list_members(
+            project.organization_id,
+        )

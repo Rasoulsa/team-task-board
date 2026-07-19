@@ -1,12 +1,26 @@
-import { Link, useParams } from 'react-router-dom';
+import { useState } from "react";
+import { Link, useParams } from "react-router-dom";
 
-import { KanbanBoard } from '../../cards/components/KanbanBoard';
+import { isViewerOrGuest } from "../../../core/domain/roles";
+import { KanbanBoard } from "../../cards/components/KanbanBoard";
+import { useBoardMembers } from "../../cards/hooks/useBoardMembers";
+import { useMyOrgRole } from "../hooks/useMyOrgRole";
+import { OrganizationMembersModal } from "../../organizations/components/OrganizationMembersModal";
 
 export function BoardPage() {
   const { projectId, boardId } = useParams<{
     projectId: string;
     boardId: string;
   }>();
+
+  const [showMembers, setShowMembers] = useState(false);
+
+  const boardMembers = useBoardMembers(boardId ?? "");
+
+  const organizationId =
+    boardMembers.data?.[0]?.organization_id ?? "";
+
+  const myRole = useMyOrgRole(organizationId);
 
   if (!projectId || !boardId) {
     return (
@@ -26,15 +40,36 @@ export function BoardPage() {
           </p>
         </div>
 
-        <Link
-          to={`/projects/${projectId}/boards`}
-          className="w-fit rounded-lg bg-slate-800 px-4 py-2 text-sm hover:bg-slate-700"
-        >
-          Back to boards
-        </Link>
+        <div className="flex w-fit gap-2">
+          <button
+            type="button"
+            onClick={() => setShowMembers(true)}
+            disabled={!organizationId}
+            className="rounded-lg bg-slate-800 px-4 py-2 text-sm hover:bg-slate-700 disabled:opacity-50"
+          >
+            Manage members
+          </button>
+
+          <Link
+            to={`/projects/${projectId}/boards`}
+            className="rounded-lg bg-slate-800 px-4 py-2 text-sm hover:bg-slate-700"
+          >
+            Back to boards
+          </Link>
+        </div>
       </div>
 
-      <KanbanBoard boardId={boardId} />
+      <KanbanBoard
+        boardId={boardId}
+        readOnlyExceptDescription={isViewerOrGuest(myRole)}
+      />
+
+      {showMembers && organizationId ? (
+        <OrganizationMembersModal
+          organizationId={organizationId}
+          onClose={() => setShowMembers(false)}
+        />
+      ) : null}
     </div>
   );
 }

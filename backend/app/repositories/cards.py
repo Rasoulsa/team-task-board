@@ -90,10 +90,42 @@ class CardRepository:
         await self.session.flush()
         return label
 
-    async def add_assignee(self, assignee: CardAssignee) -> CardAssignee:
+    async def add_assignee(
+        self,
+        assignee: CardAssignee,
+    ) -> CardAssignee:
         self.session.add(assignee)
         await self.session.flush()
         return assignee
+
+    async def get_assignee(
+        self,
+        card_id: uuid.UUID,
+        user_id: uuid.UUID,
+    ) -> CardAssignee | None:
+        stmt = select(CardAssignee).where(
+            CardAssignee.card_id == card_id,
+            CardAssignee.user_id == user_id,
+        )
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def remove_assignee(
+        self,
+        card_id: uuid.UUID,
+        user_id: uuid.UUID,
+    ) -> bool:
+        assignee = await self.get_assignee(
+            card_id=card_id,
+            user_id=user_id,
+        )
+
+        if assignee is None:
+            return False
+
+        await self.session.delete(assignee)
+        await self.session.flush()
+        return True
 
     async def add_checklist_item(
         self,
@@ -110,3 +142,24 @@ class CardRepository:
         stmt = select(ChecklistItem).where(ChecklistItem.id == item_id)
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
+
+    async def list_assigned_to_user(
+        self,
+        user_id: uuid.UUID,
+    ) -> list[Card]:
+        stmt = (
+            select(Card)
+            .join(CardAssignee, CardAssignee.card_id == Card.id)
+            .where(
+                CardAssignee.user_id == user_id,
+                Card.is_deleted.is_(False),
+            )
+            .options(
+                selectinload(Card.labels),
+                selectinload(Card.assignees),
+                selectinload(Card.checklist_items),
+            )
+            .order_by(Card.created_at.desc())
+        )
+        result = await self.session.execute(stmt)
+        return list(result.scalars().unique().all())

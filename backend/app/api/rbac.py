@@ -11,6 +11,7 @@ from app.models.user import User
 
 
 class RoleLevel(IntEnum):
+    GUEST = 5
     VIEWER = 10
     MEMBER = 20
     ADMIN = 30
@@ -18,6 +19,7 @@ class RoleLevel(IntEnum):
 
 
 ROLE_LEVELS: dict[OrganizationRole, RoleLevel] = {
+    OrganizationRole.GUEST: RoleLevel.GUEST,
     OrganizationRole.VIEWER: RoleLevel.VIEWER,
     OrganizationRole.MEMBER: RoleLevel.MEMBER,
     OrganizationRole.ADMIN: RoleLevel.ADMIN,

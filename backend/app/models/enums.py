@@ -6,6 +6,7 @@ class OrganizationRole(StrEnum):
     ADMIN = "admin"
     MEMBER = "member"
     VIEWER = "viewer"
+    GUEST = "guest"
 
 
 class InvitationStatus(StrEnum):
@@ -19,3 +20,4 @@ class NotificationType(StrEnum):
     CARD_ASSIGNED = "card_assigned"
     CARD_MENTIONED = "card_mentioned"
     DUE_DATE_REMINDER = "due_date_reminder"
+    ORGANIZATION_INVITATION = "organization_invitation"

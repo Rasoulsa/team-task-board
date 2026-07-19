@@ -8,6 +8,7 @@ import { BoardPage } from './features/boards/pages/BoardPage';
 import { BoardsPage } from './features/boards/pages/BoardsPage';
 import { DashboardPage } from './features/dashboard/pages/DashboardPage';
 import { ProjectsPage } from './features/projects/pages/ProjectsPage';
+import { AssignedCardsPage } from './features/cards/pages/AssignedCardsPage';
 
 export default function App() {
   return (
@@ -25,6 +26,7 @@ export default function App() {
         }
       >
         <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/assigned-cards" element={<AssignedCardsPage />} />
         <Route path="/projects" element={<ProjectsPage />} />
 
         <Route

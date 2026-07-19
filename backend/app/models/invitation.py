@@ -28,8 +28,15 @@ class Invitation(Base):
         index=True,
     )
 
-    email: Mapped[str] = mapped_column(String(255), index=True)
-    token: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    email: Mapped[str] = mapped_column(
+        String(255),
+        index=True,
+    )
+    token: Mapped[str] = mapped_column(
+        String(255),
+        unique=True,
+        index=True,
+    )
     role: Mapped[OrganizationRole] = mapped_column(
         Enum(OrganizationRole, name="invitation_role"),
         default=OrganizationRole.MEMBER,
@@ -39,13 +46,25 @@ class Invitation(Base):
         default=InvitationStatus.PENDING,
     )
 
-    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
-    accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+    )
+    accepted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        default=None,
+    )
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
     )
 
-    organization = relationship("Organization", back_populates="invitations")
-    inviter = relationship("User", back_populates="sent_invitations")
+    organization = relationship(
+        "Organization",
+        back_populates="invitations",
+    )
+    inviter = relationship(
+        "User",
+        back_populates="sent_invitations",
+    )

@@ -3,6 +3,7 @@ import type { CardRepository } from "../domain/CardRepository";
 import type {
   BoardDetail,
   Card,
+  CardAssignee,
   CreateCardInput,
   MoveCardInput,
   MoveCardResult,
@@ -105,5 +106,29 @@ export class HttpCardRepository
 
   async deleteCard(cardId: string): Promise<void> {
     await axiosClient.delete(`/cards/${cardId}`);
+  }
+
+  async addAssignee(
+    cardId: string,
+    userId: string,
+  ): Promise<CardAssignee> {
+    const response =
+      await axiosClient.post<CardAssignee>(
+        `/cards/${cardId}/assignees`,
+        {
+          user_id: userId,
+        },
+      );
+
+    return response.data;
+  }
+
+  async removeAssignee(
+    cardId: string,
+    userId: string,
+  ): Promise<void> {
+    await axiosClient.delete(
+      `/cards/${cardId}/assignees/${userId}`,
+    );
   }
 }
