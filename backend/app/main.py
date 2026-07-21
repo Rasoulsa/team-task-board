@@ -4,6 +4,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from redis.asyncio import Redis
+from sqlalchemy import text
 
 from app.api.v1.router import api_router
 from app.core.config import settings
@@ -13,7 +15,7 @@ from app.core.exceptions import (
 )
 from app.core.logging import configure_logging, logger
 from app.db.redis import create_redis_client
-from app.db.session import engine
+from app.db.session import AsyncSessionLocal, engine
 from app.ws.manager import connection_manager
 from app.ws.presence import PresenceTracker
 from app.ws.pubsub import RedisEventBridge
@@ -90,6 +92,33 @@ def create_app() -> FastAPI:
     @app.get("/health", tags=["health"])
     async def health() -> dict[str, str]:
         return {"status": "ok"}
+
+    @app.get("/health/ready", tags=["health"])
+    async def readiness(request: Request) -> JSONResponse:
+        """Readiness: verify DB + Redis are reachable."""
+        checks: dict[str, str] = {}
+        healthy = True
+
+        redis: Redis = request.app.state.redis
+        try:
+            await redis.ping()
+            checks["redis"] = "ok"
+        except Exception:
+            checks["redis"] = "unavailable"
+            healthy = False
+
+        try:
+            async with AsyncSessionLocal() as session:
+                await session.execute(text("SELECT 1"))
+            checks["database"] = "ok"
+        except Exception:
+            checks["database"] = "unavailable"
+            healthy = False
+
+        return JSONResponse(
+            status_code=200 if healthy else 503,
+            content={"status": "ready" if healthy else "degraded", "checks": checks},
+        )
 
     return app
 

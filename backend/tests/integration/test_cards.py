@@ -166,7 +166,7 @@ async def test_comment_with_mention_records_activity(
     )
     assert activity_response.status_code == 200
 
-    actions = [entry["action"] for entry in activity_response.json()]
+    actions = [entry["action"] for entry in activity_response.json()["items"]]
     assert "comment.created" in actions
     assert "card.created" in actions
 

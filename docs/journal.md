@@ -98,3 +98,72 @@ publish.
   layer publish? Decision: publish in the service layer so both HTTP
   and future sources stay consistent.
 
+# Reporting, Caching & Activity Feed
+
+## Goals
+- Board-level activity feed with cursor pagination
+- Board stats aggregation endpoint (cards per column, done vs open, avg age)
+- Redis-backed board cache with write-through invalidation on mutations
+- Frontend reporting slice: stats dashboard (Recharts) + activity feed UI
+
+## What shipped
+
+### Backend
+- `BoardColumn.is_done_column` — explicit flag to mark a column as "done state"
+  instead of inferring from column name. Used by stats aggregation.
+- `ActivityLog.actor` relationship added for author display in feed.
+- Cursor pagination utility (`app/core/pagination.py`) — generic, reused by
+  activity feed; unit tested independently (`tests/unit/test_pagination.py`).
+- `GET /api/v1/boards/{board_id}/activity` — now returns
+  `{ items: [...], next_cursor: str | null }` instead of a flat list.
+  **Breaking change** for any existing consumer of this endpoint (frontend
+  updated in same PR; test updated accordingly).
+- `GET /api/v1/boards/{board_id}/stats` — single-query aggregation via
+  SQLAlchemy `case()`/`func.count()` grouped by column, avoiding N+1 queries.
+- `app/core/board_cache.py` — Redis cache for board detail payload
+  (list of columns + cards), invalidated on every mutating route
+  (card create/update/move/delete/restore, label/assignee changes,
+  column CRUD, board update).
+- Two migrations:
+  - `a23966086a1c` — reporting & caching indexes (composite index on
+    `activity_logs(board_id, created_at, id)` for cursor pagination)
+  - `872aaa41e10e` — adds `is_done_column` to `board_column`
+
+### Frontend
+- `frontend/src/features/reporting/` — new feature slice:
+  - `application/StatsService.ts`
+  - `pages/StatsDashboard.tsx` (Recharts bar/pie charts)
+  - `components/ActivityFeed.tsx` (paginated, "load more" cursor-based)
+- `BoardPage.tsx` — added tab navigation (Board / Stats / Activity),
+  each tab conditionally mounts its own component to avoid unnecessary
+  polling/rendering cost when not visible.
+
+## Issues hit & resolved
+1. **Redis connection refused in CI** (`localhost:6380`) — Celery broker/result
+   backend and Redis health checks needed to be wired correctly in
+   docker-compose for the test environment; resolved by aligning `REDIS_URL`,
+   `CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND` in `.env` with the mapped
+   port (6380→6379) and adding explicit `depends_on: condition: service_healthy`.
+2. **Duplicate index creation** — index for activity cursor pagination was
+   already created in an earlier migration (`a23966086a1c`); confirmed via
+   `alembic history` that the migration chain was linear and the index wasn't
+   duplicated in `872aaa41e10e`.
+3. **`app/main.py` session factory** — startup was using a raw `sessionmaker`
+   instead of the shared `AsyncSessionLocal`; fixed to avoid divergent
+   session configuration between app startup and request-scoped dependency.
+4. **Activity feed test breakage** — `test_comment_with_mention_records_activity`
+   asserted against the old flat-list response shape; updated to read
+   `response.json()["items"]` after the cursor pagination change.
+
+## Follow-ups (Day 9 candidates)
+- Frontend bundle is single-chunk (~787kB / 236kB gzip) after adding Recharts.
+  Consider lazy-loading `BoardPage`/reporting slice via `React.lazy` +
+  `Suspense` to split the vendor chunk.
+- Confirm frontend `package.json` `"test"` script uses `vitest run` (not bare
+  `vitest`, which defaults to watch mode) for CI non-interactive runs.
+
+## Test results
+- Backend: 70 passed
+- Frontend: 44 passed (14 files)
+- `ruff check` / `ruff format` / `mypy`: clean
+- Frontend `lint` / `build`: clean

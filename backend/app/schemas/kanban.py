@@ -58,6 +58,7 @@ class KanbanColumnRead(BaseModel):
     board_id: UUID
     name: str
     position: int
+    is_done_column: bool
 
     cards: list[KanbanCardRead] = Field(default_factory=list)
 

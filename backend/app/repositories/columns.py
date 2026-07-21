@@ -41,11 +41,13 @@ class ColumnRepository:
         board_id: uuid.UUID,
         name: str,
         position: int,
+        is_done_column: bool = False,
     ) -> BoardColumn:
         column = BoardColumn(
             board_id=board_id,
             name=name,
             position=position,
+            is_done_column=is_done_column,
         )
         self.session.add(column)
         await self.session.flush()
