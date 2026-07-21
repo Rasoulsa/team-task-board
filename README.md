@@ -6,7 +6,7 @@ A real-time Trello-style task-management platform for organizations, projects, b
 
 ## Current implementation
 
-The project currently provides a complete foundation for organization-based task management, a fully interactive Kanban board, and live real-time updates:
+The project currently provides a complete foundation for organization-based task management, a fully interactive Kanban board, live real-time updates, background notifications, and board-level reporting:
 
 - JWT authentication with refresh-token rotation
 - Password-reset token foundation
@@ -15,13 +15,15 @@ The project currently provides a complete foundation for organization-based task
 - Projects, boards, and configurable board columns
 - Cards, ordering, comments, mentions, checklists, labels, and assignees
 - Card soft delete and restore
-- Board activity records
+- Board activity log, now cursor-paginated
+- Board stats dashboard (cards per column, done vs. open, overdue)
+- Redis-backed board cache with write-through invalidation
+- Assignment, mention, and due-date notifications, delivered in-app and by email via Celery
 - React authentication flow and authenticated application shell
 - Projects and boards frontend views
 - Kanban board with drag-and-drop columns and cards
 - Real-time board updates over WebSocket, with online presence tracking
-
-Notifications, reporting, and CI/CD are planned next.
+- Live notification bell with unread count over WebSocket
 
 ---
 
@@ -72,6 +74,15 @@ per-process WebSocket ConnectionManager broadcasts them to connected clients
 on the relevant board. See
 [docs/architecture/realtime-websocket.md](docs/architecture/realtime-websocket.md)
 for details.
+
+Notifications and scheduled reminders run through Celery: services enqueue
+a task after a successful commit, a worker delivers the in-app notification
+and/or email, and a beat schedule periodically checks for upcoming due dates.
+See [docs/architecture/notifications-celery.md](docs/architecture/notifications-celery.md).
+
+Board reads are served from a Redis cache and invalidated on every mutating
+route so cached data never outlives its underlying change. See
+[docs/architecture/reporting-caching.md](docs/architecture/reporting-caching.md).
 
 **Backend**
 ```text
@@ -144,6 +155,19 @@ Permissions are enforced by backend dependencies and service-layer authorization
 - Soft delete and restore cards
 - Board activity log preserved across card deletion and restoration
 
+### Notifications
+- In-app notifications for card assignment, @mentions in comments, and upcoming due dates
+- Live unread-count bell over a dedicated WebSocket channel (/api/v1/ws/notifications)
+- Email delivery via Celery worker, using Mailhog for local development
+- Scheduled due-date reminder sweep via Celery beat
+- Mark-as-read and mark-all-as-read endpoints
+
+### Reporting and caching
+- Board stats endpoint: cards per column, done vs. open counts, and overdue count, computed with a single aggregated query
+- Board activity feed, cursor-paginated to stay performant as history grows
+- Redis-backed cache for board detail reads, invalidated on every mutating route (card create/update/move/delete/restore, label/assignee changes, column CRUD, board update) so stale data is never served
+- Frontend stats dashboard (Recharts) and activity feed UI, presented as tabs on the board page
+
 ### Real-time updates
 - WebSocket endpoint per board (/api/v1/ws/boards/{board_id}) with JWT auth handshake
 - Redis Pub/Sub bridge so events broadcast correctly across multiple backend replicas
@@ -168,6 +192,8 @@ Permissions are enforced by backend dependencies and service-layer authorization
 - TanStack Query caching with optimistic updates and invalidation
 - CardRepository and CardService
 - SocketClient and useBoardSocket hook for live board updates
+- NotificationBell with live unread count and mark-as-read actions
+- Board page stats and activity tabs backed by the reporting API
 
 ---
 
@@ -186,6 +212,7 @@ Permissions are enforced by backend dependencies and service-layer authorization
 | Create, update, move, restore, or delete cards | Member |
 | Read cards, comments, labels, and activity | Viewer |
 | Create comments | Member |
+| Read board stats | Viewer |
 ```
 The backend remains the source of truth for all authorization decisions.
 
@@ -264,13 +291,32 @@ DELETE /api/v1/columns/{column_id}
 ### Cards, comments, and activity
 
 The card-management API supports card creation, update, movement, soft deletion, restoration, labels, assignees, checklist items, comments, mentions, and board activity retrieval.
+```text
+GET    /api/v1/boards/{board_id}/activity?cursor={cursor}&limit={limit}
+```
 
 Refer to the interactive OpenAPI documentation for the exact request and response schemas available in the current backend version.
+
+### Reporting
+```text
+GET    /api/v1/boards/{board_id}/stats
+```
+Returns aggregated card counts by column, done vs. open totals, and overdue count for a board.
+
+### Notifications
+```text
+GET    /api/v1/notifications
+GET    /api/v1/notifications/unread-count
+POST   /api/v1/notifications/{notification_id}/read
+POST   /api/v1/notifications/read-all
+GET    /api/v1/ws/notifications
+```
 
 ### Real-time (WebSocket)
 
 ```text
 GET    /api/v1/ws/boards/{board_id}
+GET    /api/v1/ws/notifications
 ```
 
 See [docs/api/websocket.md](docs/api/websocket.md) for the connection handshake, message envelope, and event type reference.
@@ -292,7 +338,7 @@ See [docs/api/websocket.md](docs/api/websocket.md) for the connection handshake,
 From the repository root:
 
 ```bash
-docker compose up -d db redis
+docker compose up -d db redis mailhog
 ```
 
 ### Backend
@@ -308,6 +354,21 @@ The local backend is then available at:
 ```text
 http://localhost:8010
 http://localhost:8010/docs
+```
+
+### Celery worker, beat, and Mailhog
+Notifications and scheduled due-date reminders require a running worker and
+beat scheduler. In separate terminals from `backend/`:
+
+```bash
+uv run celery -A app.tasks.celery_app worker --loglevel=info
+uv run celery -A app.tasks.celery_app beat --loglevel=info
+```
+
+Sent emails during local development can be viewed in Mailhog:
+
+```text
+http://localhost:8025
 ```
 
 ### Frontend
@@ -334,6 +395,24 @@ VITE_WS_URL=ws://localhost:8010/api/v1/ws
 
 ---
 
+## Environment variables
+In addition to database and JWT settings, the following are required for
+notifications and background tasks:
+
+```ini
+CELERY_BROKER_URL=redis://localhost:6380/0
+CELERY_RESULT_BACKEND=redis://localhost:6380/0
+SMTP_HOST=localhost
+SMTP_PORT=1025
+SMTP_FROM=noreply@teamtaskboard.local
+DUE_REMINDER_HOURS=24
+```
+
+`SMTP_HOST`/`SMTP_PORT` point at Mailhog in local development; configure a
+real SMTP provider for production.
+
+---
+
 ## Testing and quality checks
 
 ### Backend
@@ -357,6 +436,10 @@ Real-time-specific tests live under `backend/tests/realtime/` and cover
 WebSocket connect/accept behavior, auth handshake rejection, and event
 broadcast through the Redis Pub/Sub bridge.
 
+Integration tests for background tasks (notifications, due-date reminders)
+and for the Redis board cache require a running Redis instance; see
+“Test environment notes” below.
+
 ### Frontend
 
 Run from `frontend/`:
@@ -376,6 +459,8 @@ For example:
 ```ini
 ENV=testing
 REDIS_URL=redis://localhost:6380/1
+CELERY_BROKER_URL=redis://localhost:6380/1
+CELERY_RESULT_BACKEND=redis://localhost:6380/1
 ```
 
 This prevents test-created data, refresh tokens, and rate-limit counters from affecting local development sessions.
@@ -428,25 +513,21 @@ make down
 [x] Kanban board UI and drag-and-drop interaction
 [x] Real-time updates with WebSockets
 [x] Notifications and Celery background tasks
-[ ] Reporting, caching, and activity feed UI
+[x] Reporting, caching, and activity feed UI
 [ ] Production Docker, Nginx, and observability
 [ ] CI/CD, end-to-end testing, documentation, and final polish
 
-## Notification
-
-- **Features:** add a “Notifications” subsection (assign/mention/due-date, live unread bell, email via Celery).
-- **API:** add the four notification endpoints + `/ws/notifications`.
-- **Docs tree:** add `docs/architecture/notifications-celery.md`.
-- **Running locally:** add the worker/beat/mailhog terminals and `http://localhost:8025`.
-- Env: document `CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND`, `SMTP_*`, `DUE_REMINDER_HOURS`.
 
 ## Development notes
+
 - Never commit .env files, access tokens, database passwords, or production secrets.
 - Use strong values for JWT/HMAC secrets. SHA-256 signing keys should be at least 32 bytes.
 - Run Alembic migrations before starting a backend against a new database.
 - Keep the backend and frontend LexoRank implementations aligned.
 - Treat the backend as the authorization and data-validation source of truth.
 - Card mutations must commit to the database before their corresponding real-time event is published, so remote clients never see an event for a change that was rolled back.
+- Board cache invalidation must happen from the same code path as every mutating route; a new mutation that forgets to call `invalidate_board()` will silently serve stale board reads.
+
 
 ---
 

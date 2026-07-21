@@ -12,6 +12,7 @@ from app.api.v1.routes import (
     organizations,
     ping,
     projects,
+    stats,
 )
 
 api_router = APIRouter()
@@ -25,5 +26,6 @@ api_router.include_router(columns.router)
 api_router.include_router(cards.router)
 api_router.include_router(comments.router)
 api_router.include_router(invitations.router)
+api_router.include_router(stats.router)
 api_router.include_router(activity.router)
 api_router.include_router(notifications.router)

@@ -6,6 +6,16 @@ import { KanbanBoard } from "../../cards/components/KanbanBoard";
 import { useBoardMembers } from "../../cards/hooks/useBoardMembers";
 import { useMyOrgRole } from "../hooks/useMyOrgRole";
 import { OrganizationMembersModal } from "../../organizations/components/OrganizationMembersModal";
+import { StatsDashboard } from "../../reporting/pages/StatsDashboard";
+import { ActivityFeed } from "../../reporting/components/ActivityFeed";
+
+type Tab = "board" | "stats" | "activity";
+
+const TABS: { key: Tab; label: string }[] = [
+  { key: "board", label: "Board" },
+  { key: "stats", label: "Stats" },
+  { key: "activity", label: "Activity" },
+];
 
 export function BoardPage() {
   const { projectId, boardId } = useParams<{
@@ -14,6 +24,7 @@ export function BoardPage() {
   }>();
 
   const [showMembers, setShowMembers] = useState(false);
+  const [tab, setTab] = useState<Tab>("board");
 
   const boardMembers = useBoardMembers(boardId ?? "");
 
@@ -59,10 +70,33 @@ export function BoardPage() {
         </div>
       </div>
 
-      <KanbanBoard
-        boardId={boardId}
-        readOnlyExceptDescription={isViewerOrGuest(myRole)}
-      />
+      <div className="mb-4 flex gap-1 border-b border-slate-800">
+        {TABS.map(({ key, label }) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setTab(key)}
+            className={`px-4 py-2 text-sm font-medium transition ${
+              tab === key
+                ? "border-b-2 border-indigo-500 text-indigo-400"
+                : "text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "board" ? (
+        <KanbanBoard
+          boardId={boardId}
+          readOnlyExceptDescription={isViewerOrGuest(myRole)}
+        />
+      ) : null}
+
+      {tab === "stats" ? <StatsDashboard boardId={boardId} /> : null}
+
+      {tab === "activity" ? <ActivityFeed boardId={boardId} /> : null}
 
       {showMembers && organizationId ? (
         <OrganizationMembersModal

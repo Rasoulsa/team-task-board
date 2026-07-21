@@ -112,6 +112,7 @@ class BoardService:
                 board_id=board.id,
                 name=column_name,
                 position=position,
+                is_done_column=(position == len(DEFAULT_COLUMN_NAMES) - 1),
             )
 
         await self.session.commit()
