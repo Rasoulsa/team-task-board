@@ -138,3 +138,59 @@ and a preserved activity log.
 - Tests: eager-mode task creation test (mock email + publish), unread-count
   endpoint test, NotificationBell render test.
 - Compose: added celery-worker, celery-beat, mailhog services.
+
+## Production Docker, Nginx & Observability
+
+**Branch:** `feat/docker-nginx-observability`
+
+### Goal
+Bring the whole system up with one command behind Nginx, with multi-stage
+non-root images, healthchecks, worker scaling, and an optional Prometheus +
+Grafana observability profile.
+
+### What was built
+- Renamed the existing dev compose to `docker-compose.dev.yml`; added a new
+  production-like `docker-compose.yml` where only Nginx (`8080`) is published.
+- Backend: converted the Dockerfile to a true multi-stage build (builder +
+  slim non-root runtime), added `/metrics` via
+  `prometheus-fastapi-instrumentator`, added `backend/README.md` for the
+  setuptools build, and run `alembic upgrade head` before serving.
+- Frontend: multi-stage image serving the SPA on `8080` and proxying `/api`,
+  `/api/v1/ws`, `/health`, `/docs`, and `/openapi.json` to the backend; built
+  with relative Vite URLs for same-origin operation.
+- Added `docker/prometheus/prometheus.yml` and Grafana datasource + dashboard
+  provisioning under `docker/grafana/`.
+
+### Issues hit and resolved
+1. **`JWT_SECRET_KEY` blank warning** — `.env` lacked `SECRET_KEY` /
+   `JWT_SECRET_KEY`; added them plus `CORS_ORIGINS` and Grafana credentials.
+2. **Celery services reported `unhealthy`** — they inherited the backend
+   image's HTTP `/health` healthcheck, which Celery cannot answer. Fixed with
+   `healthcheck: disable: true` on `celery-worker` and `celery-beat`.
+3. **Frontend crash-looping (`/run/nginx.pid` permission denied)** — an early
+   attempt to run Nginx fully rootless (`USER nginx` + rewriting the pid path)
+   broke Nginx's default pid handling. Resolved by using the stock
+   `nginx:1.27-alpine` (master as root, workers drop to the `nginx` user),
+   which is the standard and reliable pattern. Full rootless Nginx noted as
+   future hardening.
+4. **Healthcheck flapping** — BusyBox `wget` in the Nginx alpine image behaved
+   inconsistently; installed `curl` and used it for the frontend healthcheck.
+5. **`/api/v1/docs` returned 404** — the backend mounts Swagger at `/docs` and
+   the schema at `/openapi.json` (app root), not under `/api/v1`. Added
+   explicit `/docs` and `/openapi.json` proxy blocks to `nginx.conf`.
+
+### Verification
+- `docker compose up --build` → all services healthy; SPA served at
+  `http://localhost:8080`.
+- API reachable through the proxy; `/openapi.json` and `/docs` served through
+  Nginx; live board updates confirmed between two browser sessions over the
+  proxied WebSocket.
+- `docker compose up -d --scale celery-worker=3` → three workers.
+- `docker compose --profile observability up -d` → Prometheus target `UP`,
+  Grafana "Backend Overview" dashboard provisioned.
+
+### Notes / follow-ups
+- Consider a real Celery liveness probe (`inspect ping`) instead of disabling.
+- Consider a fully rootless Nginx image if required by deployment policy.
+- Mailhog is internal-only in the production stack; expose `8025` if a demo
+  needs the UI.

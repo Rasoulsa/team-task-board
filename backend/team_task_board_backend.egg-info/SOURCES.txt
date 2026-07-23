@@ -3,6 +3,7 @@ app/__init__.py
 app/main.py
 app/api/__init__.py
 app/api/board_access.py
+app/api/card_access.py
 app/api/deps.py
 app/api/rbac.py
 app/api/v1/__init__.py
@@ -18,11 +19,14 @@ app/api/v1/routes/notifications.py
 app/api/v1/routes/organizations.py
 app/api/v1/routes/ping.py
 app/api/v1/routes/projects.py
+app/api/v1/routes/stats.py
 app/cache/__init__.py
 app/core/__init__.py
+app/core/board_cache.py
 app/core/config.py
 app/core/exceptions.py
 app/core/logging.py
+app/core/pagination.py
 app/core/security.py
 app/db/__init__.py
 app/db/base.py
@@ -51,6 +55,7 @@ app/repositories/comments.py
 app/repositories/notifications.py
 app/repositories/organizations.py
 app/repositories/projects.py
+app/repositories/stats.py
 app/repositories/users.py
 app/schemas/__init__.py
 app/schemas/activity.py
@@ -64,6 +69,7 @@ app/schemas/kanban.py
 app/schemas/notification.py
 app/schemas/organization.py
 app/schemas/project.py
+app/schemas/stats.py
 app/services/__init__.py
 app/services/activity.py
 app/services/auth.py
@@ -76,6 +82,7 @@ app/services/notification_dispatch.py
 app/services/notifications.py
 app/services/organizations.py
 app/services/projects.py
+app/services/stats.py
 app/utils/lexorank.py
 app/worker/__init__.py
 app/worker/celery_app.py
