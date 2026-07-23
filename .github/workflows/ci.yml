@@ -3,7 +3,9 @@ name: CI
 on:
   push:
     branches: [main]
+    tags: ["v*"]
   pull_request:
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -43,21 +45,13 @@ jobs:
       run:
         working-directory: backend
 
-    # These values are available to all backend steps, including pytest.
     env:
       ENV: testing
-
-      # GitHub Actions Redis service:
-      # Local Docker uses localhost:6380, but CI must use localhost:6379.
-      REDIS_URL: redis://localhost:6379/1
-
-      # GitHub Actions PostgreSQL service:
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/team_task_board_test
-
-      # Required only if your Alembic configuration uses a separate sync URL.
-      DATABASE_URL_SYNC: postgresql+psycopg://postgres:postgres@localhost:5432/team_task_board_test
-
-      # Use test-only values. Keep real production secrets outside the repository.
+      REDIS_URL: redis://127.0.0.1:6379/1
+      CELERY_BROKER_URL: redis://127.0.0.1:6379/2
+      CELERY_RESULT_BACKEND: redis://127.0.0.1:6379/3
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@127.0.0.1:5432/team_task_board_test
+      DATABASE_URL_SYNC: postgresql+psycopg://postgres:postgres@127.0.0.1:5432/team_task_board_test
       SECRET_KEY: ci-test-secret-key-must-be-at-least-32-characters-long
       JWT_SECRET_KEY: ci-jwt-test-secret-key-must-be-at-least-32-characters
 
@@ -88,11 +82,79 @@ jobs:
       - name: Mypy
         run: uv run mypy app
 
+      - name: Verify PostgreSQL
+        run: |
+          uv run python - <<'PY'
+          import asyncio
+          import os
+
+          import asyncpg
+
+
+          async def main() -> None:
+              database_url = os.environ["DATABASE_URL"]
+              database_url = database_url.replace(
+                  "postgresql+asyncpg://",
+                  "postgresql://",
+              )
+
+              connection = await asyncpg.connect(database_url)
+
+              try:
+                  result = await connection.fetchval("SELECT 1")
+                  assert result == 1
+                  print("PostgreSQL is ready")
+              finally:
+                  await connection.close()
+
+
+          asyncio.run(main())
+          PY
+
+      - name: Verify Redis
+        run: |
+          uv run python - <<'PY'
+          import asyncio
+          import os
+
+          from redis.asyncio import Redis
+
+
+          async def main() -> None:
+              url = os.environ["REDIS_URL"]
+              print(f"Checking Redis at {url}")
+
+              client = Redis.from_url(url)
+
+              try:
+                  result = await client.ping()
+                  assert result
+                  print("Redis is ready")
+              finally:
+                  await client.aclose()
+
+
+          asyncio.run(main())
+          PY
+
       - name: Run database migrations
         run: uv run alembic upgrade head
 
-      - name: Tests
-        run: uv run pytest -v
+      - name: Run backend tests
+        run: |
+          uv run pytest \
+            -v \
+            --cov=app \
+            --cov-report=xml \
+            --cov-report=term
+
+      - name: Upload backend coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: backend/coverage.xml
+          if-no-files-found: warn
 
   frontend:
     name: Frontend checks
@@ -123,7 +185,162 @@ jobs:
         run: npx tsc --noEmit
 
       - name: Run tests
-        run: npm run test -- --run
+        run: npm run test -- --run --coverage
 
       - name: Build
         run: npm run build
+
+      - name: Upload frontend coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-coverage
+          path: frontend/coverage
+          if-no-files-found: warn
+
+  e2e:
+    name: Playwright E2E
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create .env for Compose
+        run: |
+          cat > .env <<'EOF'
+          POSTGRES_USER=ttb
+          POSTGRES_PASSWORD=ttb_password
+          POSTGRES_DB=ttb_db
+          SECRET_KEY=ci-test-secret-key-must-be-at-least-32-characters-long
+          JWT_SECRET_KEY=ci-jwt-test-secret-key-must-be-at-least-32-characters
+          CORS_ORIGINS=http://localhost:8080
+          EOF
+
+      - name: Build and start stack
+        run: docker compose up -d --build
+
+      - name: Wait for application
+        run: |
+          for i in $(seq 1 40); do
+            if curl -fsS http://localhost:8080/health >/dev/null 2>&1; then
+              echo "Application is ready"
+              exit 0
+            fi
+
+            echo "Waiting for application ($i/40)"
+            sleep 3
+          done
+
+          echo "Application did not become ready"
+          docker compose ps
+          docker compose logs
+          exit 1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+
+      - name: Install E2E dependencies
+        working-directory: e2e
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Run Playwright tests
+        working-directory: e2e
+        env:
+          E2E_BASE_URL: http://localhost:8080
+        run: npx playwright test
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: e2e/playwright-report
+          if-no-files-found: warn
+
+      - name: Dump Compose logs on failure
+        if: failure()
+        run: docker compose logs
+
+      - name: Stop Compose services
+        if: always()
+        run: docker compose down --volumes
+
+  publish-images:
+    name: Build and push images to GHCR
+    runs-on: ubuntu-latest
+    needs: [e2e]
+    if: >-
+      github.ref == 'refs/heads/main' ||
+      startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Lowercase image prefix
+        id: prep
+        run: echo "prefix=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Docker metadata for backend
+        id: meta-backend
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.prep.outputs.prefix }}/backend
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=sha
+
+      - name: Build and push backend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          push: true
+          tags: ${{ steps.meta-backend.outputs.tags }}
+          labels: ${{ steps.meta-backend.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Docker metadata for frontend
+        id: meta-frontend
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.prep.outputs.prefix }}/frontend
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=sha
+
+      - name: Build and push frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          push: true
+          build-args: |
+            VITE_API_URL=/api/v1
+            VITE_WS_URL=/api/v1/ws
+          tags: ${{ steps.meta-frontend.outputs.tags }}
+          labels: ${{ steps.meta-frontend.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

@@ -4,10 +4,10 @@ os.environ.setdefault(
     "DATABASE_URL",
     "postgresql+asyncpg://ttb:ttb_password@localhost:55432/ttb_db",
 )
+os.environ.setdefault("ENV", "testing")
 os.environ.setdefault("REDIS_URL", "redis://localhost:6380/0")
 os.environ.setdefault("CELERY_BROKER_URL", "redis://localhost:6380/1")
 os.environ.setdefault("CELERY_RESULT_BACKEND", "redis://localhost:6380/2")
-os.environ.setdefault("ENV", "testing")
 os.environ.setdefault("SMTP_HOST", "localhost")
 os.environ.setdefault("SMTP_PORT", "1025")
 
@@ -43,7 +43,7 @@ async def async_client() -> AsyncIterator[AsyncClient]:
             yield test_client
 
 
-@pytest_asyncio.fixture(scope="function", autouse=True)
+# @pytest_asyncio.fixture(scope="function", autouse=True)
 async def clear_auth_rate_limits(async_client: AsyncClient) -> AsyncIterator[None]:
     """Keep auth rate-limit state isolated between integration tests.
 

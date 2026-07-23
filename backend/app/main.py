@@ -69,9 +69,37 @@ async def registered_app_exception_handler(
 
 def create_app() -> FastAPI:
     app = FastAPI(
-        title=settings.APP_NAME,
+        title="Team Task Board API",
+        description=(
+            "Real-time Trello-style task management platform.\n\n"
+            "Organizations, projects, boards, LexoRank-ordered cards, comments, "
+            "RBAC, WebSocket live updates, Celery notifications, and reporting."
+        ),
         version="1.0.0",
         lifespan=lifespan,
+        openapi_tags=[
+            {
+                "name": "auth",
+                "description": "Registration, login, refresh rotation, password reset.",
+            },
+            {"name": "organizations", "description": "Organizations and invitations."},
+            {"name": "projects", "description": "Project CRUD within an organization."},
+            {"name": "boards", "description": "Boards and columns."},
+            {
+                "name": "cards",
+                "description": "Cards, ordering, labels, assignees, checklists, comments.",
+            },
+            {"name": "activity", "description": "Board activity feed (cursor-paginated)."},
+            {"name": "reporting", "description": "Board stats and aggregates."},
+            {"name": "notifications", "description": "In-app notifications and unread counts."},
+            {
+                "name": "ws",
+                "description": "WebSocket endpoints for real-time board and notification events.",
+            },
+            {"name": "health", "description": "Liveness and readiness probes."},
+        ],
+        contact={"name": "Team Task Board", "url": "https://github.com/Rasoulsa/team-task-board"},
+        license_info={"name": "See LICENSE"},
     )
 
     app.add_middleware(
