@@ -55,6 +55,7 @@ export function LoginPage() {
 
             <input
               id="email"
+              data-testid="login-email"
               className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 outline-none focus:border-blue-500"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
@@ -71,6 +72,7 @@ export function LoginPage() {
 
             <input
               id="password"
+              data-testid="login-password"
               className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 outline-none focus:border-blue-500"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
@@ -83,6 +85,7 @@ export function LoginPage() {
           {error ? <p className="text-sm text-red-400">{error}</p> : null}
 
           <button
+            data-testid="login-submit"
             className="w-full rounded-lg bg-blue-600 px-4 py-2 font-medium hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
             disabled={isLoading}
             type="submit"

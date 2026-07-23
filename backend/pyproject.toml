@@ -110,3 +110,11 @@ dev = [
     "ruff>=0.15.20",
     "testcontainers>=4.14.2",
 ]
+
+[tool.coverage.run]
+source = ["app"]
+omit = ["app/main.py", "*/migrations/*", "*/alembic/*"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false

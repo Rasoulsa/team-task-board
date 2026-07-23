@@ -22,29 +22,18 @@ const priorityColor: Record<CardPriority, string> = {
   urgent: "#ef4444",
 };
 
-export function CardPreview({
-  card,
-  isDragging = false,
-}: CardPreviewProps) {
+export function CardPreview({ card, isDragging = false }: CardPreviewProps) {
   return (
-    <div
-      className={`kanban-card${
-        isDragging ? " kanban-card--overlay" : ""
-      }`}
-    >
+    <div className={`kanban-card${isDragging ? " kanban-card--overlay" : ""}`}>
       <div
         className="kanban-card__priority"
-        style={{
-          backgroundColor: priorityColor[card.priority],
-        }}
+        style={{ backgroundColor: priorityColor[card.priority] }}
       />
 
       <p className="kanban-card__title">{card.title}</p>
 
       {card.due_date ? (
-        <p className="kanban-card__due">
-          Due {card.due_date.slice(0, 10)}
-        </p>
+        <p className="kanban-card__due">Due {card.due_date.slice(0, 10)}</p>
       ) : null}
 
       {card.assignees.length > 0 ? (
@@ -99,7 +88,9 @@ export function CardItem({ card, onOpen, onDelete }: CardItemProps) {
       tabIndex={0}
       onClick={() => onOpen(card)}
       onKeyDown={handleKeyDown}
-      data-testid={`card-${card.id}`}
+      data-testid="card"
+      data-card-id={card.id}
+      data-column-id={card.column_id}
       className="kanban-card-wrapper"
     >
       <button

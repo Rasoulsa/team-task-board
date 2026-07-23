@@ -59,6 +59,7 @@ export function RegisterPage() {
 
             <input
               id="fullName"
+              data-testid="register-fullname"
               className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 outline-none focus:border-blue-500"
               value={fullName}
               onChange={(event) => setFullName(event.target.value)}
@@ -74,6 +75,7 @@ export function RegisterPage() {
 
             <input
               id="organizationName"
+              data-testid="register-organization"
               className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 outline-none focus:border-blue-500"
               value={organizationName}
               onChange={(event) => setOrganizationName(event.target.value)}
@@ -88,6 +90,7 @@ export function RegisterPage() {
 
             <input
               id="registerEmail"
+              data-testid="register-email"
               className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 outline-none focus:border-blue-500"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
@@ -104,6 +107,7 @@ export function RegisterPage() {
 
             <input
               id="registerPassword"
+              data-testid="register-password"
               className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 outline-none focus:border-blue-500"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
@@ -116,6 +120,7 @@ export function RegisterPage() {
           {error ? <p className="text-sm text-red-400">{error}</p> : null}
 
           <button
+            data-testid="register-submit"
             className="w-full rounded-lg bg-blue-600 px-4 py-2 font-medium hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
             disabled={isLoading}
             type="submit"

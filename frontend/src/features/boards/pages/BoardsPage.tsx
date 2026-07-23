@@ -126,6 +126,7 @@ export function BoardsPage() {
 
             <input
               id="boardName"
+              data-testid="board-name-input"
               value={name}
               onChange={(event) => setName(event.target.value)}
               className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 outline-none focus:border-blue-500"
@@ -153,6 +154,7 @@ export function BoardsPage() {
 
         <button
           type="submit"
+          data-testid="board-submit"
           disabled={createBoardMutation.isPending || !name.trim()}
           className="mt-4 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
         >
@@ -180,6 +182,8 @@ export function BoardsPage() {
           {boards.map((board) => (
             <article
               key={board.id}
+              data-testid="board-item"
+              data-board-id={board.id}
               className="rounded-2xl border border-slate-800 bg-slate-900 p-5"
             >
               <h3 className="font-semibold">{board.name}</h3>
@@ -190,8 +194,9 @@ export function BoardsPage() {
 
               <div className="mt-4 flex items-center gap-2">
                 <Link
-                to={`/projects/${projectId}/boards/${board.id}`}
-                className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-500"
+                  data-testid="open-kanban-link"
+                  to={`/projects/${projectId}/boards/${board.id}`}
+                  className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-500"
                 >
                   Open Kanban
                 </Link>

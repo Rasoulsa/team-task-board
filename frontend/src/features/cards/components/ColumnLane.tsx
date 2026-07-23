@@ -46,12 +46,9 @@ export function ColumnLane({
 
     try {
       await onAddCard(column.id, normalizedTitle);
-
-      // Only clear the input after the API operation succeeds.
       setTitle("");
     } catch {
       // The mutation error is displayed by KanbanBoard.
-      // Keep the title so the user can retry.
     }
   }
 
@@ -66,10 +63,9 @@ export function ColumnLane({
 
   return (
     <section
-      className={`kanban-column${
-        isOver ? " kanban-column--over" : ""
-      }`}
-      data-testid={`column-${column.id}`}
+      className={`kanban-column${isOver ? " kanban-column--over" : ""}`}
+      data-testid="board-column"
+      data-column-id={column.id}
       aria-label={column.name}
     >
       <header className="kanban-column__header">
@@ -83,7 +79,8 @@ export function ColumnLane({
       <div
         ref={setNodeRef}
         className="kanban-column__body"
-        data-testid={`column-body-${column.id}`}
+        data-testid="column-body"
+        data-column-id={column.id}
       >
         <SortableContext
           items={sortedCards.map((card) => card.id)}
@@ -100,19 +97,15 @@ export function ColumnLane({
         </SortableContext>
 
         {sortedCards.length === 0 ? (
-          <p className="kanban-column__empty">
-            Drop cards here
-          </p>
+          <p className="kanban-column__empty">Drop cards here</p>
         ) : null}
       </div>
 
-      <form
-        className="kanban-column__footer"
-        onSubmit={handleSubmit}
-      >
+      <form className="kanban-column__footer" onSubmit={handleSubmit}>
         <input
           type="text"
           value={title}
+          data-testid="add-card-input"
           aria-label={`Add a card to ${column.name}`}
           placeholder="Add a card"
           autoComplete="off"
@@ -122,6 +115,7 @@ export function ColumnLane({
 
         <button
           type="submit"
+          data-testid="add-card-submit"
           disabled={isAddingCard || !title.trim()}
         >
           {isAddingCard ? "Adding…" : "Add"}

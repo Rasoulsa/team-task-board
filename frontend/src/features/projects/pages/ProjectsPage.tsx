@@ -145,6 +145,7 @@ export function ProjectsPage() {
 
             <input
               id="projectName"
+              data-testid="project-name-input"
               value={name}
               onChange={(event) => setName(event.target.value)}
               className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 outline-none focus:border-blue-500"
@@ -172,6 +173,7 @@ export function ProjectsPage() {
 
         <button
           type="submit"
+          data-testid="project-submit"
           disabled={
             createProjectMutation.isPending ||
             !activeOrganizationId ||
@@ -203,6 +205,8 @@ export function ProjectsPage() {
           {projects.map((project) => (
             <article
               key={project.id}
+              data-testid="project-item"
+              data-project-id={project.id}
               className="rounded-2xl border border-slate-800 bg-slate-900 p-5"
             >
               <h3 className="font-semibold">{project.name}</h3>
@@ -213,6 +217,7 @@ export function ProjectsPage() {
 
               <div className="mt-4 flex items-center gap-2">
                 <Link
+                  data-testid="open-boards-link"
                   to={`/projects/${project.id}/boards`}
                   className="rounded-lg bg-blue-600 px-3 py-2 text-sm hover:bg-blue-500"
                 >
