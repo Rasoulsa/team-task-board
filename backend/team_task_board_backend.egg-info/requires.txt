@@ -15,6 +15,7 @@ pyjwt>=2.13.0
 email-validator>=2.3.0
 celery>=5.6.3
 psycopg[binary]>=3.3.4
+prometheus-fastapi-instrumentator>=8.0.2
 
 [dev]
 ruff>=0.12.0

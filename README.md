@@ -36,12 +36,38 @@ cp .env.example .env
 docker compose up --build
 ```
 
-After the services are ready:
+Everything is served behind Nginx on a single port:
+- App (SPA): http://localhost:8080
+- API through the proxy: http://localhost:8080/api/v1
+- API docs: http://localhost:8080/docs
+- Health: http://localhost:8080/health
+
+With the observability profile:
+
+```bash
+docker compose --profile observability up -d
+```
+
+- Prometheus: http://localhost:9090
+- Grafana: http://localhost:3000 (default `admin`/`admin`)
+
+Scale the Celery workers:
+
+```bash
+docker compose up -d --scale celery-worker=3
+```
+
+### Docker (development, hot reload + exposed ports)
+
+```bash
+docker compose -f docker-compose.dev.yml up --build
+```
 
 - API documentation: http://localhost:8010/docs
 - API health check: http://localhost:8010/health
 - Frontend: http://localhost:5174
-> Port values may differ if you customized them in .env or docker-compose.yml.
+
+> Port values may differ if you customized them in `.env` or the compose files.
 
 **Stop containers**
 ```bash
@@ -175,6 +201,18 @@ Permissions are enforced by backend dependencies and service-layer authorization
 - Redis-backed presence tracking (TTL heartbeat) per board
 - Self-originated events are filtered client-side to avoid redundant refetches after an optimistic update
 - No manual page refresh required to see changes made by other members
+
+### Deployment and observability
+- Multi-stage backend and frontend images; backend runs as a non-root user
+- Container healthchecks on `db`, `redis`, `backend`, and `frontend`
+- Single production-like Compose stack served entirely behind Nginx on port `8080`
+- Nginx serves the React build and proxies `/api`, `/api/v1/ws`, `/health`, and `/docs`
+- Frontend built with relative API/WS URLs for same-origin operation (no CORS in production path)
+- Database migrations run automatically on backend startup
+- Prometheus metrics at `/metrics` with an optional Prometheus + Grafana observability profile
+- Horizontal Celery worker scaling via `--scale celery-worker=3`
+
+See [docs/architecture/deployment-observability.md](docs/architecture/deployment-observability.md).
 
 ### Frontend
 - Authentication pages for registration and login
@@ -361,8 +399,8 @@ Notifications and scheduled due-date reminders require a running worker and
 beat scheduler. In separate terminals from `backend/`:
 
 ```bash
-uv run celery -A app.tasks.celery_app worker --loglevel=info
-uv run celery -A app.tasks.celery_app beat --loglevel=info
+uv run celery -A app.worker.celery_app.celery_app worker --loglevel=info
+uv run celery -A app.worker.celery_app.celery_app beat --loglevel=info
 ```
 
 Sent emails during local development can be viewed in Mailhog:
@@ -488,6 +526,8 @@ test:      ; cd backend && pytest -v --cov=app
 
 fe-lint:   ; cd frontend && npm run lint
 fe-test:   ; cd frontend && npm run test
+
+dev:       ; docker compose -f docker-compose.dev.yml up --build
 ```
 
 Examples:
@@ -501,6 +541,7 @@ make lint
 make fe-lint
 make fe-test
 make down
+make dev
 ```
 
 >`make down` runs `docker compose down -v`, which removes Docker volumes and therefore >deletes local database data.
@@ -514,7 +555,7 @@ make down
 [x] Real-time updates with WebSockets
 [x] Notifications and Celery background tasks
 [x] Reporting, caching, and activity feed UI
-[ ] Production Docker, Nginx, and observability
+[x] Production Docker, Nginx, and observability
 [ ] CI/CD, end-to-end testing, documentation, and final polish
 
 
@@ -544,10 +585,14 @@ docs/
 │   ├── endpoints.md                      # Full REST endpoint reference
 │   └── websocket.md                      # WebSocket connection, auth, and event contract
 ├── architecture/
-│   ├── backend-rbac-projects-boards.md   # RBAC, project/board/column design
-│   ├── cards-ordering-comments.md        # LexoRank ordering, comments, soft delete
-│   ├── frontend-app-shell.md             # Frontend routing, layout, DI approach
-│   ├── kanban-ui-dnd.md                  # Kanban board, drag-and-drop, optimistic LexoRank reorder
+│   ├── backend-rbac-projects-boards.md
+│   ├── cards-ordering-comments.md
+│   ├── deployment-observability.md       # Docker, Nginx, Prometheus/Grafana, scaling
+│   ├── frontend-app-shell.md
+│   ├── kanban-ui-dnd.md
+│   ├── notifications-celery.md
+│   ├── realtime-websocket.md
+│   └── reporting-caching.md                 # Kanban board, drag-and-drop, optimistic LexoRank reorder
 │   └── realtime-websocket.md             # ConnectionManager, Redis Pub/Sub bridge, presence
 └── journal/
     └── implementation-log.md             # Day-by-day implementation journal
