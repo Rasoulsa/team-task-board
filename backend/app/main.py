@@ -78,15 +78,24 @@ def create_app() -> FastAPI:
         version="1.0.0",
         lifespan=lifespan,
         openapi_tags=[
-            {"name": "auth", "description": "Registration, login, refresh rotation, password reset."},
+            {
+                "name": "auth",
+                "description": "Registration, login, refresh rotation, password reset.",
+            },
             {"name": "organizations", "description": "Organizations and invitations."},
             {"name": "projects", "description": "Project CRUD within an organization."},
             {"name": "boards", "description": "Boards and columns."},
-            {"name": "cards", "description": "Cards, ordering, labels, assignees, checklists, comments."},
+            {
+                "name": "cards",
+                "description": "Cards, ordering, labels, assignees, checklists, comments.",
+            },
             {"name": "activity", "description": "Board activity feed (cursor-paginated)."},
             {"name": "reporting", "description": "Board stats and aggregates."},
             {"name": "notifications", "description": "In-app notifications and unread counts."},
-            {"name": "ws", "description": "WebSocket endpoints for real-time board and notification events."},
+            {
+                "name": "ws",
+                "description": "WebSocket endpoints for real-time board and notification events.",
+            },
             {"name": "health", "description": "Liveness and readiness probes."},
         ],
         contact={"name": "Team Task Board", "url": "https://github.com/Rasoulsa/team-task-board"},

@@ -1,20 +1,20 @@
-"""Export the OpenAPI schema to docs/api/openapi.json."""
-
-from __future__ import annotations
-
 import json
+import logging
 from pathlib import Path
 
 from app.main import app
 
+logger = logging.getLogger(__name__)
+
 
 def main() -> None:
     schema = app.openapi()
-    out = Path(__file__).resolve().parents[2] / "docs" / "api" / "openapi.json"
+    out = Path("openapi.json")
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(schema, indent=2) + "\n", encoding="utf-8")
-    print(f"Wrote {out}")
+    logger.info("Wrote %s", out)
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
     main()
