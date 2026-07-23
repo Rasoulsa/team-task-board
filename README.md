@@ -507,6 +507,41 @@ Authentication rate-limit keys are Redis-backed and should be isolated or cleare
 
 ---
 
+## CI/CD
+
+GitHub Actions runs on every push to `main`, every PR, and on version tags:
+
+1. Backend lint & type-check (`ruff`, `mypy`)
+2. Backend tests with Postgres + Redis service containers and coverage
+3. Frontend lint, unit tests (coverage), and build
+4. **Playwright E2E** against the full Compose stack behind Nginx
+5. Build & push backend/frontend images to **GHCR** (semver + SHA + branch tags)
+
+See [docs/architecture/cicd-e2e.md](docs/architecture/cicd-e2e.md).
+
+### End-to-end tests
+
+```bash
+docker compose up -d --build
+cd e2e
+npm ci
+npx playwright install --with-deps chromium
+E2E_BASE_URL=http://localhost:8080 npx playwright test
+```
+
+The E2E scenario logs in, creates a board and card, drags the card in one
+session, and asserts the move appears live in a second session — validating the
+real-time WebSocket path through the Nginx proxy.
+
+### Published images
+
+```bash
+docker pull ghcr.io/<owner>/team-task-board/backend:1.0.0
+docker pull ghcr.io/<owner>/team-task-board/frontend:1.0.0
+```
+
+---
+
 ## Makefile commands
 
 The repository `Makefile` provides common Docker and backend commands:
@@ -556,7 +591,7 @@ make dev
 [x] Notifications and Celery background tasks
 [x] Reporting, caching, and activity feed UI
 [x] Production Docker, Nginx, and observability
-[ ] CI/CD, end-to-end testing, documentation, and final polish
+[x] CI/CD, end-to-end testing, documentation, and final polish
 
 
 ## Development notes

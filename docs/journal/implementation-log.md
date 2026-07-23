@@ -194,3 +194,43 @@ Grafana observability profile.
 - Consider a fully rootless Nginx image if required by deployment policy.
 - Mailhog is internal-only in the production stack; expose `8025` if a demo
   needs the UI.
+
+## CI/CD, E2E, Docs & Release
+
+**Branch:** `feat/cicd-e2e-docs`
+
+### Goal
+Complete the delivery pipeline: full GitHub Actions (lint → type-check → tests →
+build → E2E → GHCR publish), Playwright end-to-end coverage of the core
+real-time flow, Swagger polish with OpenAPI export, coverage on both stacks,
+final documentation, and the `v1.0.0` release.
+
+### What was built
+- **CI/CD** (`.github/workflows/ci.yml`): parallel backend quality/tests
+  (Postgres + Redis service containers, migrations, pytest+coverage), frontend
+  lint/test/build, a full-stack Playwright E2E job against the Compose stack,
+  and a GHCR publish job gated to `main` and version tags with semver/sha/branch
+  image tags.
+- **E2E** (`e2e/`): standalone Playwright package; scenario covers register →
+  project → board → card → cross-session drag with live WebSocket update
+  through Nginx.
+- **Swagger polish**: enriched app metadata, ordered OpenAPI tags, contact/
+  license, and a `scripts/export_openapi.py` exporter writing
+  `docs/api/openapi.json`.
+- **Coverage**: backend coverage config in `pyproject.toml`; frontend v8
+  coverage in the Vitest config; both uploaded as CI artifacts.
+- **Docs**: new `docs/architecture/cicd-e2e.md`; README updated with pipeline,
+  running instructions, design-decision summaries, and screenshots.
+
+### Issues hit and resolved
+<!-- fill in the real ones as you run it, e.g.: -->
+- (Record: GHCR lowercase image name, dnd-kit drag needing stepped mouse moves,
+  E2E selector alignment via data-testid, wait-for-/health loop tuning.)
+
+### Verification
+- CI green on the PR (all jobs).
+- Playwright report shows the real-time scenario passing.
+- GHCR shows `backend` and `frontend` images tagged `1.0.0` after the tag push.
+
+### Release
+- Merged to `main`, tagged `v1.0.0`, images published to GHCR.
